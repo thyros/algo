@@ -1,3 +1,5 @@
+#include "utils.h"
+
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -16,42 +18,15 @@ struct Requirement
 
 using Rules = std::unordered_map<std::string, std::vector<Requirement>>;
 
-std::vector<std::string> ParseInput(std::istream& istr)
-{
-	std::vector<std::string> input;
-	std::string line;
-	while (getline(istr, line))
-	{
-		input.push_back(std::move(line));
-	}
-	return input;
-}
-
-std::vector<std::string> Tokenize(const std::string& input, char delimeter)
-{
-	std::vector<std::string> tokens;
-
-	size_t b = 0;
-
-	while (b != std::string::npos)
-	{
-		size_t e = input.find(delimeter, b);
-
-		tokens.push_back(input.substr(b, e - b));
-		b = e == std::string::npos ? e : e + 1;
-	};
-
-	return tokens;
-}
 
 void AppendBag(Rules& rules, const std::string& input)
 {
 	// vibrant salmon bags contain 1 vibrant gold bag, 2 wavy aqua bags, 1 dotted crimson bag.
 	// 2 words describing color | bags contain | [quantity color bag(s),]+
 
-	std::vector<std::string> tokens = Tokenize(input, ' ');
+	std::vector<std::string_view> tokens = Utils::Tokenize(input, ' ');
 
-	std::string bagColor = tokens[0] + ' ' + tokens[1];
+	std::string bagColor = Utils::ToString(tokens[0]) + ' ' + Utils::ToString(tokens[1]);
 
 	std::vector<Requirement> requirements;
 
@@ -59,8 +34,8 @@ void AppendBag(Rules& rules, const std::string& input)
 	{
 		for (size_t i = 4; i < tokens.size(); i += 4)
 		{
-			int quantity = atoi(tokens[i].c_str());
-			std::string nestedBagColor = tokens[i + 1] + ' ' + tokens[i + 2];
+			int quantity = atoi(Utils::ToString(tokens[i]).c_str());
+			std::string nestedBagColor = Utils::ToString(tokens[i + 1]) + ' ' + Utils::ToString(tokens[i + 2]);
 
 			requirements.push_back(Requirement{quantity, nestedBagColor});
 		}
@@ -126,16 +101,14 @@ int CountBagsInside(const Rules& rules, const std::vector<Requirement>& requirem
         bagsInside += requirement.quantity * CountBagsInside(rules, it->second);
     }
 
-
     return bagsInside;
-
 }
 
 int main()
 {
 	std::ifstream ifstr("day-07.input");
 
-	std::vector<std::string> input = ParseInput(ifstr);
+	std::vector<std::string> input = Utils::ParseInput(ifstr);
 	Rules rules = ParseRules(input);
 
 	const int wrappersForShinyGold = CountWrappersForShinyGold(rules);
