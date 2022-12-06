@@ -118,8 +118,7 @@ long solvePart2(const Lines& lines) {
 }
 
 long solve(const char* filename, std::function<long(Lines)> solveFunction) {
-    std::ifstream file(filename);
-    const Lines lines = readLines(file);
+    const Lines lines = readFile(filename);
 
     return solveFunction(lines);
 }

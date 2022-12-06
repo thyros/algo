@@ -13,3 +13,8 @@ Lines readLines(std::istream& istr) {
     }
     return lines;
 }
+
+Lines readFile(const char* filename) {
+    std::ifstream file(filename);
+    return readLines(file);
+}

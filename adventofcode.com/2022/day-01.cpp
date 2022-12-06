@@ -29,8 +29,7 @@ long findMax(Calories calories, int count) {
 
 
 long solve(const char* filename, int count) {
-    std::ifstream file{filename};
-    const Lines lines = readLines(file);
+    const Lines lines = readFile(filename);
     const std::vector<long> calories = toCalories(lines);
 
     return findMax(calories, count);
