@@ -1,12 +1,19 @@
 #include "utils.h"
 #include <algorithm>
 #include <cassert>
+#include <cstdio>
 #include <iostream>
 
 enum class Shape {
-    Rock = 1,
-    Paper = 2,
-    Scissors = 3
+    Rock = 0,
+    Paper = 1,
+    Scissors = 2
+};
+
+enum class Result {
+    Lose = 0,
+    Draw = 1,
+    Win = 2
 };
 
 struct Round {
@@ -14,11 +21,33 @@ struct Round {
     Shape you;
 };
 
+struct SetRound {
+    Shape opponent;
+    Result result;
+};
+
 Round makeRound(std::string_view line) {
     char opponent = line[0];
     char you = line[2];
 
-    return {static_cast<Shape>(opponent - 'A' + 1), static_cast<Shape>(you - 'X' + 1)};
+    return {static_cast<Shape>(opponent - 'A'), static_cast<Shape>(you - 'X')};
+}
+
+SetRound makeSetRound(std::string_view line) {
+    char opponent = line[0];
+    char you = line[2];
+
+    return {static_cast<Shape>(opponent - 'A'), static_cast<Result>(you - 'X')};
+}
+
+Shape makeMove(Shape opponent, Result desiredResult) {
+    if (desiredResult == Result::Draw) {
+        return opponent;
+    }
+    if (desiredResult == Result::Lose) {
+        return static_cast<Shape>((static_cast<int>(opponent) + 2) % 3);
+    }
+    return static_cast<Shape>((static_cast<int>(opponent) + 1) % 3);
 }
 
 int rateRound(Shape opponent, Shape you) {
@@ -36,7 +65,7 @@ int rateRound(Shape opponent, Shape you) {
 }
 
 int rateShape(Shape you) {
-    return static_cast<int>(you);
+    return static_cast<int>(you) + 1;
 }
 
 using Rounds = std::vector<Round>;
@@ -50,20 +79,49 @@ Rounds toRounds(const Lines& lines) {
 }
 
 
-long solve(const char* filename) {
-    std::ifstream file(filename);
-    const Lines lines = readLines(file);
+using SetRounds = std::vector<SetRound>;
+SetRounds toSetRounds(const Lines& lines) {
+    SetRounds setRounds;
+    setRounds.reserve(lines.size());
+
+    std::transform(begin(lines), end(lines), std::back_inserter(setRounds), makeSetRound);
+    return setRounds;
+}
+
+
+long solvePart1(const Lines& lines) {
     const Rounds rounds = toRounds(lines);
 
     long result = 0;
     for (const auto &[opponent, you]: rounds) {
         int roundValue = rateRound(opponent, you);
         int shapeValue = rateShape(you);
-
         result += roundValue + shapeValue;
     }
 
     return result;
+}
+
+long solvePart2(const Lines& lines) {
+    const SetRounds setRounds = toSetRounds(lines);
+
+    long result = 0;
+    for (const auto &[opponent, roundResult]: setRounds) {
+        Shape you = makeMove(opponent, roundResult);
+
+        int roundValue = rateRound(opponent, you);
+        int shapeValue = rateShape(you);
+
+        result += roundValue + shapeValue;
+    }
+    return result;    
+}
+
+long solve(const char* filename, std::function<long(Lines)> solveFunction) {
+    std::ifstream file(filename);
+    const Lines lines = readLines(file);
+
+    return solveFunction(lines);
 }
 
 void test() {
@@ -79,9 +137,22 @@ void test() {
     assert(6 == rateRound(Shape::Rock, Shape::Paper));
     assert(6 == rateRound(Shape::Paper, Shape::Scissors));
     assert(6 == rateRound(Shape::Scissors, Shape::Rock));
+
+    // losing move
+    assert(Shape::Scissors == makeMove(Shape::Rock, Result::Lose));
+    assert(Shape::Rock == makeMove(Shape::Paper, Result::Lose));
+    assert(Shape::Paper == makeMove(Shape::Scissors, Result::Lose));
+    // drawing move
+    assert(Shape::Rock == makeMove(Shape::Rock, Result::Draw));
+    assert(Shape::Paper == makeMove(Shape::Paper, Result::Draw));
+    assert(Shape::Scissors == makeMove(Shape::Scissors, Result::Draw));
+    // winning move
+    assert(Shape::Paper == makeMove(Shape::Rock, Result::Win));
+    assert(Shape::Scissors == makeMove(Shape::Paper, Result::Win));
+    assert(Shape::Rock == makeMove(Shape::Scissors, Result::Win));
 }
 
 int main() {
     test();
-    std::cout << "Result: " << solve("day-02.input");
+    std::cout << "Result: " << solve("day-02.input", solvePart2);
 }
