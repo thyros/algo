@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -16,5 +17,6 @@ Lines readLines(std::istream& istr) {
 
 Lines readFile(const char* filename) {
     std::ifstream file(filename);
+    assert(file.good());
     return readLines(file);
 }
