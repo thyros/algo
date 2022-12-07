@@ -8,11 +8,12 @@
         "args": [
           "/Z7",
           "/EHsc",
-          "/std:c++17",
+          "/std:c++20",
+          "/Fo:\"${fileDirname}\\build\\${fileBasenameNoExtension}.obj\"",
           "${file}",
           "/link",
           "/NOLOGO",
-          "/OUT:${fileDirname}\\${fileBasenameNoExtension}.exe"
+          "/OUT:${fileDirname}\\build\\${fileBasenameNoExtension}.exe"
         ],
         "problemMatcher": ["$msCompile"],
         "group": {
