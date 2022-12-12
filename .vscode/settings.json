@@ -60,6 +60,16 @@
         "xstddef": "cpp",
         "xtr1common": "cpp",
         "xtree": "cpp",
-        "array": "cpp"
+        "array": "cpp",
+        "atomic": "cpp",
+        "bit": "cpp",
+        "charconv": "cpp",
+        "clocale": "cpp",
+        "compare": "cpp",
+        "deque": "cpp",
+        "forward_list": "cpp",
+        "unordered_set": "cpp",
+        "format": "cpp",
+        "stack": "cpp"
     }
 }
