@@ -55,35 +55,15 @@ Point simulate(const Grid& grid, Point current, int maxY) {
         for (const Point& offset: dropOffsets) {
             const Point next {.x = current.x + offset.x, .y = current.y + offset.y};
             if (!grid.contains(next)) {
-                printf("Moving %i,%i to %i,%i\n", current.x, current.y, next.x, next.y);
-
                 moved = true;
                 current = next;
-
-                continue;
+                break;
             }
         }
 
         if (!moved) {
             break;
         }
-
-        // const Point next {current.x, current.y + 1};
-        // if (grid.count(next) == 0) {
-        //     current = next;
-        // } else {
-        //     const Point bottomLeft {current.x - 1, current.y + 1};
-        //     if (grid.count(bottomLeft) == 0) {
-        //         current = bottomLeft;
-        //     } else {
-        //         const Point bottomRight {current.x + 1, current.y + 1};
-        //         if (grid.count(bottomRight) == 0) {
-        //             current = bottomRight;
-        //         } else {
-        //             return current;
-        //         }
-        //     }
-        // }
     };
     return current;
 }
@@ -170,7 +150,7 @@ void solve(const char* filename) {
 
     // print(paths);
     part1(grid, start, maxY);
-    // part2(grid, start, maxY);
+    part2(grid, start, maxY);
 }
 
 void test() {
@@ -180,6 +160,6 @@ void test() {
 int main() {
     test();
 
-    constexpr char filename[] { "day-14.sample" };
+    constexpr char filename[] { "day-14.input" };
     solve(filename);
 }
