@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "point.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -9,27 +10,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-
-struct Point {
-    int x;
-    int y;
-};
-
-template<>
-struct std::hash<Point> {
-    std::size_t operator()(const Point& p) const noexcept
-    {
-        constexpr int MAX_VALUE = 1000;
-        return ((p.x+MAX_VALUE)<<16)|((p.y+MAX_VALUE)&0xFFFF);
-    }
-};
-
-template<>
-struct std::equal_to<Point> {
-    bool operator()( const Point& lhs, const Point& rhs ) const {
-        return lhs.x == rhs.x && lhs.y == rhs.y;
-    }
-};
 
 using Path = std::vector<Point>;
 using Paths = std::vector<Path>;
@@ -68,34 +48,43 @@ Paths toPaths(const Lines& lines) {
 }
 
 Point simulate(const Grid& grid, Point current, int maxY) {
-    // constexpr std::array<Point, 3> dropOffsets { Point{.x = 0, .y = +1}, Point {.x = -1, .y = 0}, Point {.x = 1, .y = 1}};
+    constexpr std::array<Point, 3> dropOffsets { Point{.x = 0, .y = 1}, Point {.x = -1, .y = 1}, Point {.x = 1, .y = 1}};
 
-    do {
-        // for (const Point& offset: dropOffsets) {
-        //     const Point next {.x = current.x + offset.x, .y = current.y + offset.y};
-        //     if (grid.count(next) == 0) {
-        //         current = next;
-        //         continue;
-        //     }
-        // }
+    while(current.y <= maxY) {
+        bool moved = false;
+        for (const Point& offset: dropOffsets) {
+            const Point next {.x = current.x + offset.x, .y = current.y + offset.y};
+            if (!grid.contains(next)) {
+                printf("Moving %i,%i to %i,%i\n", current.x, current.y, next.x, next.y);
 
-        const Point next {current.x, current.y + 1};
-        if (grid.count(next) == 0) {
-            current = next;
-        } else {
-            const Point bottomLeft {current.x - 1, current.y + 1};
-            if (grid.count(bottomLeft) == 0) {
-                current = bottomLeft;
-            } else {
-                const Point bottomRight {current.x + 1, current.y + 1};
-                if (grid.count(bottomRight) == 0) {
-                    current = bottomRight;
-                } else {
-                    return current;
-                }
+                moved = true;
+                current = next;
+
+                continue;
             }
         }
-    } while (current.y <= maxY);
+
+        if (!moved) {
+            break;
+        }
+
+        // const Point next {current.x, current.y + 1};
+        // if (grid.count(next) == 0) {
+        //     current = next;
+        // } else {
+        //     const Point bottomLeft {current.x - 1, current.y + 1};
+        //     if (grid.count(bottomLeft) == 0) {
+        //         current = bottomLeft;
+        //     } else {
+        //         const Point bottomRight {current.x + 1, current.y + 1};
+        //         if (grid.count(bottomRight) == 0) {
+        //             current = bottomRight;
+        //         } else {
+        //             return current;
+        //         }
+        //     }
+        // }
+    };
     return current;
 }
 
@@ -181,7 +170,7 @@ void solve(const char* filename) {
 
     // print(paths);
     part1(grid, start, maxY);
-    part2(grid, start, maxY);
+    // part2(grid, start, maxY);
 }
 
 void test() {
@@ -191,6 +180,6 @@ void test() {
 int main() {
     test();
 
-    constexpr char filename[] { "day-14.input" };
+    constexpr char filename[] { "day-14.sample" };
     solve(filename);
 }
