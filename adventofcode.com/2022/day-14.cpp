@@ -1,4 +1,6 @@
 #include "utils.h"
+#include <algorithm>
+#include <array>
 #include <cassert>
 #include <charconv>
 #include <cstdio>
@@ -13,39 +15,45 @@ struct Point {
     int y;
 };
 
+template<>
+struct std::hash<Point> {
+    std::size_t operator()(const Point& p) const noexcept
+    {
+        constexpr int MAX_VALUE = 1000;
+        return ((p.x+MAX_VALUE)<<16)|((p.y+MAX_VALUE)&0xFFFF);
+    }
+};
+
+template<>
+struct std::equal_to<Point> {
+    bool operator()( const Point& lhs, const Point& rhs ) const {
+        return lhs.x == rhs.x && lhs.y == rhs.y;
+    }
+};
+
 using Path = std::vector<Point>;
 using Paths = std::vector<Path>;
-
+using Grid = std::unordered_set<Point>;
 
 Point toPoint(std::string_view sv) {
-    Point result;
+    const auto tokens = tokenize(sv, ",");
+    const auto left = tokens[0];
+    const auto right = tokens[1];
 
-    const auto coma = sv.find(',');
-    std::from_chars(sv.begin(), sv.begin() + coma, result.x);
-    std::from_chars(sv.begin() + coma + 1, sv.end(), result.y);
+    Point result;
+    result.x = std::stoi(toString(left));
+    result.y = std::stoi(toString(right));
 
     return result;
 }
 
 Path toPath(const std::string& line) {
+    const auto tokens = tokenize(line, " -> ");
+
     Path result;
+    result.reserve(tokens.size());
 
-    std::string_view sv = line;
-
-    size_t lhs = 0;
-
-    while(lhs != std::string::npos) {
-        size_t rhs = line.find(" -> ");
-
-        Point from = toPoint(sv.substr(lhs, rhs - lhs));
-        
-
-
-
-    }
-
-
-
+    std::transform(begin(tokens), end(tokens), std::back_inserter(result), toPoint);
     return result;
 }
 
@@ -59,9 +67,121 @@ Paths toPaths(const Lines& lines) {
     return result;
 }
 
+Point simulate(const Grid& grid, Point current, int maxY) {
+    // constexpr std::array<Point, 3> dropOffsets { Point{.x = 0, .y = +1}, Point {.x = -1, .y = 0}, Point {.x = 1, .y = 1}};
+
+    do {
+        // for (const Point& offset: dropOffsets) {
+        //     const Point next {.x = current.x + offset.x, .y = current.y + offset.y};
+        //     if (grid.count(next) == 0) {
+        //         current = next;
+        //         continue;
+        //     }
+        // }
+
+        const Point next {current.x, current.y + 1};
+        if (grid.count(next) == 0) {
+            current = next;
+        } else {
+            const Point bottomLeft {current.x - 1, current.y + 1};
+            if (grid.count(bottomLeft) == 0) {
+                current = bottomLeft;
+            } else {
+                const Point bottomRight {current.x + 1, current.y + 1};
+                if (grid.count(bottomRight) == 0) {
+                    current = bottomRight;
+                } else {
+                    return current;
+                }
+            }
+        }
+    } while (current.y <= maxY);
+    return current;
+}
+
+Grid toGrid(const Paths& paths) {
+    Grid result;
+    
+    for(const auto& path: paths) {
+        for (int i = 1; i < path.size(); ++i) {
+            const Point& from = path[i - 1];
+            const Point& to = path[i];
+
+            for (int x = std::min(from.x, to.x); x <= std::max(from.x, to.x); ++x) {
+                result.insert(Point{.x = x, .y = from.y});
+            }
+            for (int y = std::min(from.y, to.y); y <= std::max(from.y, to.y); ++y) {
+                result.insert(Point{.x = from.x, .y = y});
+            }
+        }
+    }
+
+    return result;
+}
+
+int findMaxY(const Paths& paths) {
+    int maxY = 0;
+    for(const auto& path: paths) {
+        for (int i = 1; i < path.size(); ++i) {
+            const Point& from = path[i - 1];
+            const Point& to = path[i];
+
+            maxY = std::max(maxY, std::max(from.y, to.y));
+        }
+    }
+    return maxY;
+}
+
+void part1(Grid grid, Point start, int maxY) {
+    int count = 0;
+    bool abyss = false;
+    while (!abyss) {
+        const Point restPoint = simulate(grid, start, maxY);
+        grid.insert(restPoint);
+
+        abyss = restPoint.y > maxY;
+        if (!abyss) {
+            ++count;
+        }
+    }
+
+    printf("Part 1: %i\n", count);
+}
+
+void part2(Grid grid, Point start, int maxY) {
+    int count = 0;
+    bool startBlocked = false;
+    while (!startBlocked) {
+        const Point restPoint = simulate(grid, start, maxY);
+        grid.insert(restPoint);
+
+        startBlocked = start.x == restPoint.x && start.y == restPoint.y;
+        ++count;
+    }
+
+    printf("Part 2: %i\n", count);
+}
+
+void print(const Paths& paths) {
+    for (const Path& path: paths) {
+        for (const Point& p: path) {
+            printf("(%i,%i)->", p.x, p.y);
+        }
+        printf("\n");
+    }
+}
+
 void solve(const char* filename) {
     const Lines lines = readFile(filename);
     const Paths paths = toPaths(lines);
+
+    const Grid grid = toGrid(paths);
+    const int maxY = findMaxY(paths);
+    const Point start {500, 0};
+
+    // print(paths);
+    part1(grid, start, maxY);
+    part2(grid, start, maxY);
 }
 
 void test() {
@@ -71,6 +191,6 @@ void test() {
 int main() {
     test();
 
-    constexpr char filename[] { "day-14.sample" };
+    constexpr char filename[] { "day-14.input" };
     solve(filename);
 }

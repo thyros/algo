@@ -20,3 +20,24 @@ Lines readFile(const char* filename) {
     assert(file.good());
     return readLines(file);
 }
+
+std::vector<std::string_view> tokenize(const std::string_view& input, std::string_view delimeter = " ")
+{
+	std::vector<std::string_view> tokens;
+
+	size_t b = 0;
+
+	while (b != std::string::npos)
+	{
+		size_t e = input.find(delimeter, b);
+
+		tokens.push_back(input.substr(b, e - b));
+		b = e == std::string::npos ? e : e + delimeter.length();
+	};
+
+	return tokens;
+}
+
+std::string toString(std::string_view sv) {
+    return std::string{begin(sv), end(sv)};
+}
