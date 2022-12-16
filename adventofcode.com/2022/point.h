@@ -3,8 +3,9 @@
 #include <functional>
 
 struct Point {
-    int x;
-    int y;
+    int x {0};
+    int y {0};
+    auto operator<=>(const Point&) const = default;
 };
 
 template<>
@@ -13,12 +14,5 @@ struct std::hash<Point> {
     {
         constexpr int MAX_VALUE = 1000;
         return ((p.x+MAX_VALUE)<<16)|((p.y+MAX_VALUE)&0xFFFF);
-    }
-};
-
-template<>
-struct std::equal_to<Point> {
-    bool operator()( const Point& lhs, const Point& rhs ) const {
-        return lhs.x == rhs.x && lhs.y == rhs.y;
     }
 };

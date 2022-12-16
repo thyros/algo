@@ -6,6 +6,8 @@
 #include <vector>
 
 using Lines = std::vector<std::string>;
+using Tokens = std::vector<std::string_view>;
+
 Lines readLines(std::istream& istr) {
     Lines lines;
 
@@ -21,21 +23,29 @@ Lines readFile(const char* filename) {
     return readLines(file);
 }
 
-std::vector<std::string_view> tokenize(const std::string_view& input, std::string_view delimeter = " ")
-{
+std::vector<std::string_view> tokenize2(std::string_view input, 
+                                        std::string_view::size_type begin = 0, 
+                                        std::string_view::size_type end = std::string_view::npos, 
+                                        std::string_view delimeter = " ")  {
 	std::vector<std::string_view> tokens;
 
-	size_t b = 0;
+	size_t b = begin;
 
-	while (b != std::string::npos)
+	while (b != end)
 	{
 		size_t e = input.find(delimeter, b);
 
 		tokens.push_back(input.substr(b, e - b));
-		b = e == std::string::npos ? e : e + delimeter.length();
+		b = e == end ? e : e + delimeter.length();
 	};
 
 	return tokens;
+
+}
+
+std::vector<std::string_view> tokenize(const std::string_view& input, std::string_view delimeter = " ")
+{
+    return tokenize2(input, 0, std::string_view::npos, delimeter);
 }
 
 std::string toString(std::string_view sv) {
