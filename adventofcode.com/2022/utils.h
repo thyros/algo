@@ -51,3 +51,15 @@ std::vector<std::string_view> tokenize(const std::string_view& input, std::strin
 std::string toString(std::string_view sv) {
     return std::string{begin(sv), end(sv)};
 }
+
+template <typename T1, typename T2>
+auto max(const T1 &a, const T2 &b) -> typename std::common_type<const T1&, const T2&>::type
+{
+    return a > b ? a : b;
+}
+
+template <typename T1, typename T2, typename ... Args>
+auto max(const T1 &a, const T2 &b, const Args& ... args) -> typename std::common_type<const T1&, const T2&, const Args& ...>::type
+{
+    return max(max(a, b), args...);
+}

@@ -9,6 +9,7 @@
           "/Z7",
           "/EHsc",
           "/std:c++20",
+          "/fsanitize=address",
           "/Fo:\"${fileDirname}\\build\\${fileBasenameNoExtension}.obj\"",
           "${file}",
           "/link",

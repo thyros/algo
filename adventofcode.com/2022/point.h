@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <functional>
 
 struct Point {
@@ -16,3 +17,9 @@ struct std::hash<Point> {
         return ((p.x+MAX_VALUE)<<16)|((p.y+MAX_VALUE)&0xFFFF);
     }
 };
+
+std::ostream & operator << (std::ostream &out, const Point &p)
+{
+    out << "(" << p.x << "," << p.y << ")";
+    return out;
+}

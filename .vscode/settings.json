@@ -70,6 +70,10 @@
         "forward_list": "cpp",
         "unordered_set": "cpp",
         "format": "cpp",
-        "stack": "cpp"
+        "stack": "cpp",
+        "cassert": "cpp",
+        "source_location": "cpp",
+        "ranges": "cpp",
+        "span": "cpp"
     }
 }
