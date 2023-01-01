@@ -1,41 +1,24 @@
+#include "hash.h"
 #include "utils.h"
 #include "point.h"
 #include "ut.hpp"
 #include <algorithm>
+#include <array>
+#include <deque>
 #include <map>
+#include <numeric>
 #include <vector>
+#include <unordered_set>
 
-struct Wind
-{
-    Point position;
-    Point direction;
-
-    auto operator<=>(const Wind&) const = default;
-};
+using Wind = std::unordered_set<Point>;
 using Winds = std::vector<Wind>;
-using Maze = std::vector<std::vector<bool>>;
-using Points = std::vector<Point>;
+using State = std::array<int, 3>;   // time, x, y
+using Seen = std::unordered_set<State, ArrayHash<3>>;
 
-std::vector<Point> validMoves{{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+const std::vector<Point> validMoves{{1, 0}, {-1, 0}, {0, -1}, {0, 1}, {0, 0}};
 
-struct State {
-    Winds winds;
-    Point expedition;
-    int time;
-    auto operator<=>(const State&) const = default;
-};
-
-struct Node : public State {
-    int gCost;
-    int hCost;
-    int fCost;
-
-    auto operator<=>(const Node&) const = default;
-};
-inline bool operator<(const Node& lhs, const Node& rhs)
-{
-    return lhs.fCost < rhs.fCost || lhs.fCost == rhs.fCost && lhs.hCost < rhs.hCost;
-}
+// state modifiers: index of the wind, direction of the wind
+const std::vector<std::tuple<int, int, int>> stateModifiers{{0, -1, 0}, {1, 1, 0}, {2, 0, -1}, {3, 0, 1}};
 
 struct ParseResult
 {
@@ -46,65 +29,10 @@ struct ParseResult
     int height;
 };
 
-Maze emptyMaze(int width, int height)
-{
-    Maze result(height, std::vector<bool>(width, true));
-    for (int y = 0; y < height; ++y)
-    {
-        result[y][0] = false;
-        result[y][width - 1] = false;
-    }
-
-    for (int x = 0; x < width; ++x)
-    {
-        result[0][x] = false;
-        result[height - 1][x] = false;
-    }
-
-    return result;
-}
-
-Winds simulate(Winds winds, int width, int height)
-{
-    for (Wind& w : winds)
-    {
-        w.position.x += w.direction.x;
-        w.position.y += w.direction.y;
-
-        if (w.position.x == 0)
-        {
-            w.position.x = width - 2;
-        }
-        else if (w.position.x == width - 1)
-        {
-            w.position.x = 1;
-        }
-        else if (w.position.y == 0)
-        {
-            w.position.y = height - 2;
-        }
-        else if (w.position.y == height - 1)
-        {
-            w.position.y = 1;
-        }
-    }
-    return winds;
-}
-
-Maze createMaze(const Winds& winds, int width, int height)
-{
-    Maze result = emptyMaze(width, height);
-    for (const Wind& w : winds)
-    {
-        result[w.position.y][w.position.x] = false;
-    }
-    return result;
-}
-
 ParseResult parse(const Lines& lines)
 {
-    const int height = lines.size();
-    const int width = lines[0].size();
+    const int height = lines.size() - 2;
+    const int width = lines[0].size() - 2;
 
     auto findDot = [](const std::string& l) -> int
     {
@@ -118,212 +46,117 @@ ParseResult parse(const Lines& lines)
         return -1;
     };
 
-    Winds winds;
-    for (int y = 1; y < height - 2; ++y)
+    Winds winds{4, Wind{}};
+    for (int y = 1; y <= height; ++y)
     {
-        for (int x = 1; x < width - 2; ++x)
+        for (int x = 1; x <= width; ++x)
         {
             const char c = lines[y][x];
-            if (c == '<')
-                winds.push_back(Wind{{x, y}, {-1, 0}});
-            else if (c == '>')
-                winds.push_back(Wind{{x, y}, {1, 0}});
-            else if (c == '^')
-                winds.push_back(Wind{{x, y}, {0, -1}});
-            else if (c == 'v')
-                winds.push_back(Wind{{x, y}, {0, 1}});
+            if (c != '.')
+            {
+                const int i = c == '<' ? 0 : c == '>' ? 1 : c == '^' ? 2 : 3;
+
+                const int wx = x - 1;
+                const int wy = y - 1;
+                winds[i].insert({wx, wy});
+            }
         }
     }
 
-    Point start{findDot(lines.front()), 0};
-    Point goal{findDot(lines.back()), height - 1};
+    Point start{findDot(lines.front()) - 1, -1};
+    Point goal{findDot(lines.back()) - 1, height};
 
     return {.winds = std::move(winds), .start = start, .goal = goal, .width = width, .height = height};
 }
 
+int traverse_bfs(const Winds& winds, const Point& start, const Point& goal, int initTime, int width, int height) {
+    std::deque<State> queue;
+    queue.push_back({initTime, start.x, start.y});
+    Seen seen;
 
+    const int lcm = width * height / std::gcd(width, height);
 
-void part1(const Winds& winds, const Point& start, const Point& goal, int width, int height)
-{
-    std::vector<Node> openList;
-    std::map<State, std::tuple<int,int,int>> wholeMap;
-    std::map<State, bool> closedList;
+    while (!queue.empty())
+    {
+        const auto& [t, x, y] = queue.front();
+        queue.pop_front();
 
+        const int time = t + 1;
 
-    Node n {{winds, start, 0}, 0, 0, 0};
-    openList.push_back(n);
-    while (!openList.empty()) {
-        std::sort(begin(openList), end(openList));
+        for (const auto [dx, dy] : validMoves)
+        {
+            const int nextX = x + dx;
+            const int nextY = y + dy;
 
-        const auto it = begin(openList);
-        const Node node = *it;
-        openList.erase(it);
-        closedList[node] = true;
-
-        const Winds winds = simulate(node.winds, width, height);
-        const Maze maze = createMaze(winds, width, height);
-
-        for (const Point& o : validMoves) {
-            Point neighbour = {node.expedition.x + o.x, node.expedition.y + o.y};
-            if (neighbour == goal)
+            if (nextX == goal.x && nextY == goal.y)
             {
-                // wholeMap[neighbour].previousRoom = currentRoom;
-                // here we can construct the path [startRoom..endRoom] if needed
-                break;
+                return time;
             }
-            if (neighbour.x < 1 || neighbour.y < 1 || neighbour.x > width - 2 || neighbour.y > height - 2) {
+
+            if ((nextX < 0 || nextY < 0 || nextX >= width || nextY >= height) && !(nextX == start.x && nextY == start.y))
+            {
                 continue;
             }
 
-            State newState {.winds = winds, .expedition = neighbour, .time = node.time + 1};
-            if (closedList[newState] == false)
+            bool collide = false;
+            if (!(nextX == start.x && nextY == start.y))
             {
-                const int gNew = node.fCost + 1;
-                const int hNew = goal.y - node.expedition.y + goal.x - node.expedition.y;
-                const int fNew = gNew + hNew;
-
-                // Check if this path is better than the one already present
-
-                auto it = wholeMap.find(newState);
-                if (it == end(wholeMap) || std::get<0>(it->second) > fNew)
+                for (const auto [i, dx, dy] : stateModifiers)
                 {
-                    // Update the details of this neighbour node
-                    wholeMap[newState] = std::make_tuple(fNew, gNew, hNew);
+                    int ttx = (nextX - dx * time) % width;
+                    if (ttx < 0) ttx += width;
+                    int tty = (nextY - dy * time) % height;
+                    if (tty < 0) tty += height;
+                    const Point p{ttx, tty};
 
-                    openList.emplace_back(newState);
+                    if (winds[i].contains(p))
+                    {
+                        collide = true;
+                        break;
+                    }
                 }
             }
+
+            if (!collide)
+            {
+                const State key{time % lcm, nextX, nextY};
+                if (seen.contains(key))
+                {
+                    continue;
+                }
+                queue.push_back({time, nextX, nextY});
+                seen.insert(key);
+            }
+        
         }
     }
+    return -1;
+}
 
-    // std::vector<State> fifo;
-    // fifo.push_back(s);
+void part1(const Winds& winds, const Point& start, const Point& goal, int width, int height)
+{
+    const int time = traverse_bfs(winds, start, goal, 0, width, height);
+    printf("Part 1: %i\n", time);
+}
 
-    // int count = 0;
-    // while (!fifo.empty())
-    // {
-    //     const State current = fifo.front();
-
-    //     printf("%i: %i %zi\n", ++count, current.count, fifo.size());
-
-    //     if (current.expedition == current.goal || count == 20)
-    //     {
-    //         break;
-    //     }
-
-    //     const Winds winds = simulate(current.winds, current.width, current.height);
-    //     const Maze maze = createMaze(winds, current.width, current.height);
-
-    //     for (const Point& o : validMoves)
-    //     {
-    //         Point newE = {current.expedition.x + o.x, current.expedition.y + o.y};
-    //         if (newE == current.goal) {
-    //             break;
-    //         }
-
-    //         if (newE.x < 1 || newE.y < 1 || newE.x > current.width - 2 || newE.y > current.height - 2) {
-    //             continue;
-    //         }
-
-    //         if (maze[newE.y][newE.x] == true)
-    //         {
-    //             printf("\tadding %i,%i %i,%i\n", newE.x, newE.y, o.x, o.y);
-    //             fifo.push_back(State {.winds = winds,
-    //                 .expedition = newE,
-    //                 .goal = current.goal,
-    //                 .count = current.count + 1,
-    //                 .width = current.width,
-    //                 .height = current.height});
-    //         }
-    //     }
-
-    //     fifo.erase(begin(fifo));
-    // }
-
-    // printf("Part 1: %i\n", fifo.front().count);
+void part2(const Winds& winds, const Point& start, const Point& goal, int width, int height)
+{
+    const int t1 = traverse_bfs(winds, start, goal, 0, width, height);
+    const int t2 = traverse_bfs(winds, goal, start, t1, width, height);
+    const int t3 = traverse_bfs(winds, start, goal, t2, width, height);
+    printf("Part 2: %i %i %i\n", t3, t2, t1);
 }
 
 void solve(const char* filename)
 {
     const Lines& lines = readFile(filename);
-    const auto&[winds, start, goal, width, height] = parse(lines);
+    const auto& [winds, start, goal, width, height] = parse(lines);
 
     part1(winds, start, goal, width, height);
+    part2(winds, start, goal, width, height);
 }
 
-void test() {
-    using namespace boost::ut;
-
-    "when space in front is empty, wind moves"_test = []{
-        // ######
-        // #    #
-        // # <^ #
-        // # V> #
-        // #    #
-        // ######
-        const Winds winds { {{2,2}, {-1, 0}}, {{3,2},{0,-1}}, {{3,3},{1,0}}, {{2,3},{0,1}}};
-        const Winds given = simulate(winds, 6, 6);
-        const Winds expected { {{1,2}, {-1, 0}}, {{3,1},{0,-1}}, {{4,3},{1,0}}, {{2,4},{0,1}}};
-        expect(given == expected);
-    };
-
-    "when space in front is a wall, wind wraps"_test = []{
-        // #####
-        // #< ^#
-        // #   #
-        // #V >#
-        // #####
-        const Winds winds { {{1,1}, {-1, 0}}, {{3,1},{0,-1}}, {{3,3},{1,0}}, {{1,3},{0,1}}};
-        const Winds given = simulate(winds, 5, 5);
-        const Winds expected { {{3,1}, {-1, 0}}, {{3,3},{0,-1}}, {{1,3},{1,0}}, {{1,1},{0,1}}};
-        expect(given == expected);
-    };
-
-    "winds can move to the same space"_test = []{
-        // #####
-        // # V #
-        // #> <#
-        // # ^ #
-        // #####
-        const Winds winds { {{3,2}, {-1, 0}}, {{2,3},{0,-1}}, {{1,2},{1,0}}, {{2,1},{0,1}}};
-        const Winds given = simulate(winds, 5, 5);
-        const Winds expected { {{2,2}, {-1, 0}}, {{2,2},{0,-1}}, {{2,2},{1,0}}, {{2,2},{0,1}}};
-        expect(given == expected);
-    };
-
-    "winds can move out of the same space"_test = []{
-        // #####
-        // #   #
-        // # 4 #
-        // #   #
-        // #####
-        const Winds winds  { {{2,2}, {-1, 0}}, {{2,2},{0,-1}}, {{2,2},{1,0}}, {{2,2},{0,1}}};
-        const Winds given = simulate(winds, 5, 5);
-        const Winds expected { {{1,2}, {-1, 0}}, {{2,1},{0,-1}}, {{3,2},{1,0}}, {{2,3},{0,1}}};
-        expect(given == expected);
-    };
-
-    "generate maze"_test = []{
-        // #####
-        // # V #
-        // #> <#
-        // # ^ #
-        // #####
-        const Winds winds { {{3,2}, {-1, 0}}, {{2,3},{0,-1}}, {{1,2},{1,0}}, {{2,1},{0,1}}};
-        Maze maze = createMaze(winds, 5, 5);
-
-        expect(maze[1][1] == true);
-        expect(maze[3][1] == true);
-        expect(maze[2][2] == true);
-        expect(maze[1][3] == true);
-        expect(maze[3][3] == true);
-
-        expect(maze[2][1] == false);
-        expect(maze[1][2] == false);
-        expect(maze[3][2] == false);
-        expect(maze[2][3] == false);
-    };
-}
+void test() {}
 
 int main(int argc, char* argv[])
 {
