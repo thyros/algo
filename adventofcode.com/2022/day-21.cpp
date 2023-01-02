@@ -1,6 +1,7 @@
 #include "utils.h"
 #include <cassert>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -17,13 +18,13 @@ using OpMonkeys = std::unordered_map<std::string, OpMonkey>;
 
 struct Tree
 {
-    Tree(int v) : value(v) {}
-    Tree(char t, Tree* l, Tree* r) : type(t), lhs(l), rhs(r) {}
+    Tree(ValueType v) : value(v) {}
+    Tree(char t, std::unique_ptr<Tree> l, std::unique_ptr<Tree> r) : type(t), lhs(std::move(l)), rhs(std::move(r)) {}
 
     char type{'v'};
     ValueType value{0};
-    Tree* lhs{nullptr};
-    Tree* rhs{nullptr};
+    std::unique_ptr<Tree> lhs{nullptr};
+    std::unique_ptr<Tree> rhs{nullptr};
 };
 
 struct ParseResult
@@ -74,69 +75,51 @@ void print(const ValueMonkeys& valueMonkeys, const OpMonkeys& opMonkeys)
     printf("Total %zi %zi %zi monkeys\n", valueMonkeys.size(), opMonkeys.size(), valueMonkeys.size() + opMonkeys.size());
 }
 
-Tree* toTree(const std::string& id, const ValueMonkeys& valueMonkeys, const OpMonkeys& opMonkeys, const char* humn)
+std::unique_ptr<Tree> toTree(const std::string& id, const ValueMonkeys& valueMonkeys, const OpMonkeys& opMonkeys, const char* humn)
 {
     // part 2
     if (humn && id == humn) {
-        return new Tree('?', nullptr, nullptr);
+        return std::make_unique<Tree>('?', nullptr, nullptr);
     }
 
     if (const auto valueIt = valueMonkeys.find(id); valueIt != end(valueMonkeys))
     {
-        return new Tree(valueIt->second);
+        return std::make_unique<Tree>(valueIt->second);
     }
 
     if (const auto opIt = opMonkeys.find(id); opIt != end(opMonkeys))
     {
-        Tree* lhs = toTree(opIt->second.lhs, valueMonkeys, opMonkeys, humn);
-        Tree* rhs = toTree(opIt->second.rhs, valueMonkeys, opMonkeys, humn);
-        return new Tree(opIt->second.op, lhs, rhs);
+        std::unique_ptr<Tree> lhs = toTree(opIt->second.lhs, valueMonkeys, opMonkeys, humn);
+        std::unique_ptr<Tree> rhs = toTree(opIt->second.rhs, valueMonkeys, opMonkeys, humn);
+        return std::make_unique<Tree>(opIt->second.op, std::move(lhs), std::move(rhs));
     }
 
     assert(false && "monkey not found");
     return nullptr;
 }
 
-ValueType calculate(const Tree* tree)
+ValueType calculate(const Tree& tree)
 {
-    switch (tree->type)
+    switch (tree.type)
     {
         case '+':
-            return calculate(tree->lhs) + calculate(tree->rhs);
+            return calculate(*tree.lhs) + calculate(*tree.rhs);
         case '-':
-            return calculate(tree->lhs) - calculate(tree->rhs);
+            return calculate(*tree.lhs) - calculate(*tree.rhs);
         case '*':
-            return calculate(tree->lhs) * calculate(tree->rhs);
+            return calculate(*tree.lhs) * calculate(*tree.rhs);
         case '/':
-            return calculate(tree->lhs) / calculate(tree->rhs);
+            return calculate(*tree.lhs) / calculate(*tree.rhs);
     }
-    return tree->value;
+    return tree.value;
 }
 
-Tree* fakeLeftTree()
-{
-    return new Tree('+',
-        new Tree('/',
-            new Tree('*', new Tree('-', new Tree('+', new Tree('?', nullptr, nullptr), new Tree(1)), new Tree(3)), new Tree(2)),
-            new Tree(4)),
-        new Tree(5));
-}
-
-Tree* fakeRightTree() {
-    return new Tree('+', 
-                new Tree(4), new Tree('/', 
-                                new Tree(8), new Tree('*',
-                                    new Tree(2), new Tree('-',
-                                        new Tree(3), new Tree('+',
-                                            new Tree(1), new Tree('?', nullptr, nullptr))))));
-}
-
-Tree* flattenTree(Tree* tree) {
+std::unique_ptr<Tree> flattenTree(std::unique_ptr<Tree> tree) {
     if (tree->lhs) {
-        tree->lhs = flattenTree(tree->lhs);
+        tree->lhs = flattenTree(std::move(tree->lhs));
     }
     if (tree->rhs) {
-        tree->rhs = flattenTree(tree->rhs);
+        tree->rhs = flattenTree(std::move(tree->rhs));
     }
     if (tree->type == 'v' || tree->type == '?') {
         return tree;
@@ -149,41 +132,40 @@ Tree* flattenTree(Tree* tree) {
         const ValueType v = op == '+' ? vl + vr :
                         op == '-' ? vl - vr :
                         op == '*' ? vl * vr : vl / vr;
-
-        return new Tree(v);
+        return std::make_unique<Tree>(v);
     }
 
     return tree;
 }
 
-ValueType calculateReverse(const Tree* tree, ValueType valueSoFar)
+ValueType calculateReverse(const Tree& tree, ValueType valueSoFar)
 {
-    if (tree->type == '?')
+    if (tree.type == '?')
         return valueSoFar;
 
-    if (tree->lhs->type == 'v') {
-        switch (tree->type) {
+    if (tree.lhs->type == 'v') {
+        switch (tree.type) {
             case '+':
-                return calculateReverse(tree->rhs, valueSoFar - tree->lhs->value);
+                return calculateReverse(*tree.rhs, valueSoFar - tree.lhs->value);
             case '-':
-                return calculateReverse(tree->rhs, tree->lhs->value - valueSoFar);
+                return calculateReverse(*tree.rhs, tree.lhs->value - valueSoFar);
             case '/':
-                return calculateReverse(tree->rhs, tree->lhs->value / valueSoFar);
+                return calculateReverse(*tree.rhs, tree.lhs->value / valueSoFar);
             case '*':
-                return calculateReverse(tree->rhs, valueSoFar / tree->lhs->value);
+                return calculateReverse(*tree.rhs, valueSoFar / tree.lhs->value);
         }
     }
 
-    if (tree->rhs->type == 'v') {
-        switch (tree->type) {
+    if (tree.rhs->type == 'v') {
+        switch (tree.type) {
             case '+':
-                return calculateReverse(tree->lhs, valueSoFar - tree->rhs->value);
+                return calculateReverse(*tree.lhs, valueSoFar - tree.rhs->value);
             case '-':
-                return calculateReverse(tree->lhs, valueSoFar + tree->rhs->value);
+                return calculateReverse(*tree.lhs, valueSoFar + tree.rhs->value);
             case '/':
-                return calculateReverse(tree->lhs, valueSoFar * tree->rhs->value);
+                return calculateReverse(*tree.lhs, valueSoFar * tree.rhs->value);
             case '*':
-                return calculateReverse(tree->lhs, valueSoFar / tree->rhs->value);
+                return calculateReverse(*tree.lhs, valueSoFar / tree.rhs->value);
         }
     }
 
@@ -193,26 +175,19 @@ ValueType calculateReverse(const Tree* tree, ValueType valueSoFar)
 
 void part1(const ValueMonkeys& valueMonkeys, const OpMonkeys& opMonkeys)
 {
-    const Tree* tree = toTree("root", valueMonkeys, opMonkeys, nullptr);
-    const ValueType v = calculate(tree);
+    const std::unique_ptr<Tree> tree = toTree("root", valueMonkeys, opMonkeys, nullptr);
+    const ValueType v = calculate(*tree);
     printf("Part 1: %lli\n", v);
 }
 
 void part2(const ValueMonkeys& valueMonkeys, const OpMonkeys& opMonkeys)
 {
-    // Tree* tree = fakeRightTree();
-    Tree* tree = toTree("root", valueMonkeys, opMonkeys, "humn");
-    
-    const ValueType lv = calculate(tree->lhs);
-    const ValueType rv = calculate(tree->rhs);
-    
-    tree = flattenTree(tree);
-
-
+    std::unique_ptr<Tree> tree = toTree("root", valueMonkeys, opMonkeys, "humn");
+    tree = flattenTree(std::move(tree));
 
     const ValueType v = tree->lhs->type == 'v' ?
-         calculateReverse(tree->rhs, tree->lhs->value) :
-         calculateReverse(tree->lhs, tree->rhs->value);
+         calculateReverse(*tree->rhs, tree->lhs->value) :
+         calculateReverse(*tree->lhs, tree->rhs->value);
 
     printf("Part 2: %lli\n", v);
 }
