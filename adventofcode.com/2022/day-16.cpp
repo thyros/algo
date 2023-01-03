@@ -1,12 +1,8 @@
 #include "utils.h"
 #include "ut.hpp"
-#include <algorithm>
 #include <cassert>
 #include <cstdio>
-#include <iostream>
-#include <iterator>
 #include <unordered_map>
-#include <unordered_set>
 
 constexpr int INF = 10000;
 
@@ -24,9 +20,9 @@ struct std::hash<Valve>
     std::size_t operator()(const Valve& v) const noexcept { return std::hash<std::string>()(v.id); }
 };
 
-using Valves = std::unordered_map<std::string, Valve>;
-using OpenValves = long long;
-using ValveIds = std::unordered_map<std::string, int>;
+using AllValves = std::unordered_map<std::string, Valve>;
+using NonZeroValvesBitMask = long long;
+using ValveIndices = std::unordered_map<std::string, int>;
 
 Valve toValve(std::string_view line)
 {
@@ -44,9 +40,9 @@ Valve toValve(std::string_view line)
     return {.id = id, .flowRate = flowRate, .tunnels = tunnels};
 }
 
-Valves toValves(const Lines& lines)
+AllValves toValves(const Lines& lines)
 {
-    Valves result;
+    AllValves result;
     for (const auto& line : lines)
     {
         Valve v = toValve(line);
@@ -55,7 +51,7 @@ Valves toValves(const Lines& lines)
     return result;
 }
 
-void print(const Valves& valves)
+void print(const AllValves& valves)
 {
     const auto printKeyValue = [](const auto& key, const auto& value)
     {
@@ -118,7 +114,7 @@ void printDist(const Dist& dist)
     }
 }
 
-int dsf(const Dist& dist, const std::vector<int>& values, int current, OpenValves bitmask, int timeLeft)
+int dsf(const Dist& dist, const std::vector<int>& flowRates, const std::vector<int>& nonZeroIndices, int currentValve, NonZeroValvesBitMask bitmask, int timeLeft)
 {
     if (timeLeft <= 0)
     {
@@ -126,22 +122,25 @@ int dsf(const Dist& dist, const std::vector<int>& values, int current, OpenValve
     }
 
     int result = 0;
-    for (int i = 0; i < dist.size(); ++i)
+    for (int a = 0; a < nonZeroIndices.size(); ++a)
     {
-        OpenValves bit = 1 << i;
-        if (bitmask & bit || values[i] == 0)
+        const int nextValve = nonZeroIndices[a];
+        const int flowRate = flowRates[nextValve];
+
+        NonZeroValvesBitMask bit = 1 << a;
+        if (currentValve == nextValve || bitmask & bit || flowRate == 0)
         {
             continue;
         }
 
-        const int timeTaken = dist[current][i] + 1;
-        const int valveGenerated = values[i] * (timeLeft - timeTaken);
+        const int timeTaken = dist[currentValve][nextValve] + 1; // traverse + open
+        const int valveGenerated = flowRate * (timeLeft - timeTaken);
         if (valveGenerated <= 0)
         {
             continue;
         }
 
-        const int restValue = dsf(dist, values, i, bitmask | bit, timeLeft - timeTaken);
+        const int restValue = dsf(dist, flowRates, nonZeroIndices, nextValve, bitmask | bit, timeLeft - timeTaken);
 
         // printf("%i %i %i %i\n", i, timeTaken, valveGenerated, restValue);
         result = std::max(result, valveGenerated + restValue);
@@ -150,19 +149,23 @@ int dsf(const Dist& dist, const std::vector<int>& values, int current, OpenValve
     return result;
 }
 
-void part1(const Dist& dist, const std::vector<int>& values, int current)
+void part1(const Dist& dist, const std::vector<int>& flowRates, const std::vector<int>& nonZeroIndices, int currentValve)
 {
-    const int result = dsf(dist, values, current, 0, 30);
+    const int result = dsf(dist, flowRates, nonZeroIndices, currentValve, 0, 30);
     printf("Part 1: %i\n", result);
 }
 
-void part2(const Dist& dist, const std::vector<int>& valves, int current)
+void part2(const Dist& dist, const std::vector<int>& flowRates, const std::vector<int>& nonZeroIndices, int currentValve)
 {
     int result = 0;
-    const int total = (1 << valves.size()) - 1;
-    for (int i = 0; i <= total / 2; ++i) {
-        const int pr = dsf(dist, valves, current, i, 26);
-        const int er = dsf(dist, valves, current, total ^ i, 26);
+    const NonZeroValvesBitMask total = (1ll << nonZeroIndices.size()) - 1;
+    printf("nonZeroIndices: %zi total: %zi\n", nonZeroIndices.size(), total);
+    for (NonZeroValvesBitMask i = 0; i <= total / 2; ++i) {
+        const int pr = dsf(dist, flowRates, nonZeroIndices, currentValve, i, 26);
+        const int er = dsf(dist, flowRates, nonZeroIndices, currentValve, total ^ i, 26);
+
+        if (i % 2500 == 0)
+            printf("%zi: %i = %i + %i\n", i, pr+er, pr, er);
 
         result = std::max(result, pr + er);
 
@@ -173,41 +176,40 @@ void part2(const Dist& dist, const std::vector<int>& valves, int current)
 void solve(const char* filename)
 {
     const Lines lines = readFile(filename);
-    Valves valves = toValves(lines);
+    AllValves valves = toValves(lines);
 
-    // print(valves);
-
-    ValveIds valveIds;
+    // generate map of valve id -> index
+    ValveIndices valveIndices;
     for (const auto& [key, value] : valves)
     {
-        // printf("Valve %s = %zi\n", key.c_str(), valveIds.size());
-        valveIds[key] = valveIds.size();
+        const int index = valveIndices.size();
+        valveIndices[key] = index;
     }
 
-    const int size = lines.size();
+    const int size = valves.size();
     Dist dist(size, std::vector<int>(size, INF));
-    std::vector<int> values(size, 0);
+    std::vector<int> flowRates(size, 0);
+    std::vector<int> nonZeroIndices;
     for (const auto& [key, value] : valves)
     {
-        const int from = valveIds[key];
+        const int from = valveIndices[key];
         for (const std::string& t : value.tunnels)
         {
-            const int to = valveIds[t];
+            const int to = valveIndices[t];
             dist[from][to] = 1;
-            // printf("%s-%i -> %s-%i = 1\n", key.c_str(), from, t.c_str(), to);
         }
 
         dist[from][from] = 0;
-        values[from] = value.flowRate;
+        flowRates[from] = value.flowRate;
+        if (value.flowRate != 0) {
+            nonZeroIndices.push_back(from);
+        }
     }
 
-    // printDist(dist);
     floydWarshall(dist);
-    // printf("After: \n");
-    // printDist(dist);
 
-    part1(dist, values, valveIds["AA"]);
-    part2(dist, values, valveIds["AA"]);
+    part1(dist, flowRates, nonZeroIndices, valveIndices["AA"]);
+    part2(dist, flowRates, nonZeroIndices, valveIndices["AA"]);
 }
 
 void test()
