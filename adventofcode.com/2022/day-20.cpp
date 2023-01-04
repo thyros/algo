@@ -5,29 +5,11 @@
 #include <vector>
 
 using Buffer = std::vector<int>;
-
-// template<class ForwardIt>
-// constexpr // since C++20
-// ForwardIt // void until C++11
-// rotate(ForwardIt first, ForwardIt n_first, ForwardIt last)
-// {
-//    if(first == n_first) return last;
-//    if(n_first == last) return first;
- 
-//    ForwardIt read      = n_first;
-//    ForwardIt write     = first;
-//    ForwardIt next_read = first; // read position for when "read" hits "last"
- 
-//    while(read != last) {
-//       if(write == next_read) next_read = read; // track where "first" went
-//       std::iter_swap(write++, read++);
-//    }
- 
-//    // rotate the remaining sequence into place
-//    (rotate)(write, next_read, last);
-//    return write;
-// }
-
+struct Node {
+    Node* left = nullptr;
+    Node* right = nullptr;
+    int value;
+};
 
 void print(const std::vector<int>& v) {
     for (int i: v) {
@@ -35,69 +17,6 @@ void print(const std::vector<int>& v) {
     }
 }
 
-Buffer rotate(Buffer buffer, size_t index)
-{
-    const int value = buffer[index] % static_cast<int>(buffer.size());
-    const size_t len = buffer.size();
-
-    // printf("Rotating ");
-    // print(buffer);
-    // printf(" at %zi by %i\n", index, value);
-
-
-    if (value > 0 && value + index < len) {
-        const size_t first = index;
-        const size_t n_first = first + 1;
-        const size_t last = first + value + 1;
-        // printf("\t(value > 0 && value + index < len) %zi %zi %zi\n", first, n_first, last);
-
-        std::rotate(begin(buffer) + first, begin(buffer) + n_first, begin(buffer) + last);
-
-        // printf("Got ");
-        // print(buffer);
-        // printf("\n");
-
-    }
-    else if (value > 0) 
-    {
-        const size_t first = len - index - 1;
-        const size_t n_first = first + 1;
-        const size_t last = len - value + len - index - 1;
-        // printf("\t(value > 0) %zi %zi %zi\n", first, n_first, last);
-
-        std::rotate(rbegin(buffer) + first, rbegin(buffer) + n_first, rbegin(buffer) + last);
-
-        // printf("Got ");
-        // print(buffer);
-        // printf("\n");
-    }
-    else if (value < 0 && index > -value) {
-        const size_t first = len - index - 1;
-        const size_t n_first = first + 1;
-        const size_t last = first - value + 1;
-        // printf("\t(value < 0 && index - value > 0) %zi %zi %zi\n", first, n_first, last);
-
-        std::rotate(rbegin(buffer) + first, rbegin(buffer) + n_first, rbegin(buffer) + last);
-
-        // printf("Got ");
-        // print(buffer);
-        // printf("\n");
-    } else if (value < 0) {
-        const size_t first = index;
-        const size_t n_first = first + 1;
-        const size_t last = len + value + index;
-        // printf("\t(value < 0) %zi %zi %zi\n", first, n_first, last);
-
-        std::rotate(begin(buffer) + first, begin(buffer) + n_first, begin(buffer) + last);
-
-        // printf("Got ");
-        // print(buffer);
-        // printf("\n");
-    }
-
-
-    return buffer;
-}
 
 Buffer parse(const Lines& lines) {
     Buffer result(lines.size(), 0);
@@ -107,26 +26,112 @@ Buffer parse(const Lines& lines) {
     return result;
 }
 
-void part1(const Buffer& buffer) {
+Node* createCircularBuffer(const Buffer& buffer) {
+    Node* head = nullptr;
+    Node* previous = nullptr;
 
-    Buffer current = buffer;
-    for (int a: buffer) {
-        const auto it = std::find(begin(current), end(current), a);
-        const auto i = it - begin(current);
+    for (int i: buffer) {
+        Node* current = new Node();
+        current->left = previous;
+        current->value = i;
+        current->right = nullptr;
 
-        current = rotate(current, i);
+        if (!head) {
+            head = current;
+        }
+        if (previous) {
+            previous->right = current;
+        }
+
+        previous = current;
     }
 
-    const auto it = std::find(begin(current), end(current), 0);
-    const size_t i = it - begin(current);
+    previous->right = head;
+    head->left = previous;
 
-    const size_t first = (i + 1000) % buffer.size();
-    const size_t second = (i + 2000) % buffer.size();
-    const size_t third = (i + 3000) % buffer.size();
+    return head;
+}
 
-    const int value = current[first] + current[second] + current[third];
-    printf("Part 1: %i+%i+%i = %i\n", current[first], current[second], current[third], value);
+Node* findNode(Node* node, int v) {
+    Node* head = node;
 
+    do {
+        if (node->value == v) {
+            return node;
+        }
+        node = node->right;
+
+    } while(node != head);
+
+    return nullptr;
+}
+
+void print(Node* node) {
+    Node* head = node;
+
+    do {
+        printf("%4i ", node->value);
+        node = node->right;
+    } while(node != head);
+    printf("\n");
+}
+
+void rotate(Node* node, int width) {
+
+    const int v = std::abs(node->value) % (width-1);
+    printf("Rotating %i by %i, width %i\n", node->value, v, width);
+
+    if (v == 0) {
+        return;
+    }
+
+    node->left->right = node->right;
+    node->right->left = node->left;
+
+    Node* temp = node;
+    for (int i = 0; i < v; ++i) {
+        if (node->value > 0) temp = temp->right;
+        else if (node->value < 0) temp = temp->left;
+    }
+
+    if (node->value > 0) {
+        node->right = temp->right;
+        node->left = temp;
+    } else if (node->value < 0) {
+        node->right = temp;
+        node->left = temp->left;
+    }
+
+    node->right->left = node;
+    node->left->right = node;
+}
+
+Node* advance(Node* node, int c, int width) {
+    const int v = c % width;
+    for (int i = 0; i < v; ++i) {
+        node = node->right;
+    }
+    return node;
+}
+
+void part1(const Buffer& buffer) {
+
+    Node* node = createCircularBuffer(buffer);
+    Node* zero = findNode(node, 0);
+    // print(zero);
+    const int width = buffer.size();
+    for (int i = 0; i < width; ++i) {
+        const int v = buffer[i];
+        Node* c = findNode(zero, v);
+        rotate(c, width);
+        // print(zero);
+    }
+
+    const int v1 = advance(zero, 1000, width)->value;
+    const int v2 = advance(zero, 2000, width)->value;
+    const int v3 = advance(zero, 3000, width)->value;
+
+    printf("Part 1: %i = %i + %i + %i\n", v1+v2+v3, v1, v2, v3);
 }
 
 void solve(const char* filename) {
@@ -140,61 +145,6 @@ void test()
 {
     using namespace boost::ut;
 
-    "sample"_test = [] {
-        expect(rotate(Buffer{1, 2, -3, 3, -2, 0, 4}, 0) == Buffer{2, 1, -3, 3, -2, 0, 4});
-        expect(rotate(Buffer{2, 1, -3, 3, -2, 0, 4}, 0) == Buffer{1, -3, 2, 3, -2, 0, 4});
-        expect(rotate(Buffer{1, -3, 2, 3, -2, 0, 4}, 1) == Buffer{1, 2, 3, -2, -3, 0, 4});
-        expect(rotate(Buffer{1, 2, 3, -2, -3, 0, 4}, 2) == Buffer{1, 2, -2, -3, 0, 3, 4});
-        expect(rotate(Buffer{1, 2, -2, -3, 0, 3, 4}, 2) == Buffer{1, 2, -3, 0, 3, 4, -2});
-        expect(rotate(Buffer{1, 2, -3, 0, 3, 4, -2}, 3) == Buffer{1, 2, -3, 0, 3, 4, -2});
-        expect(rotate(Buffer{1, 2, -3, 0, 3, 4, -2}, 5) == Buffer{1, 2, -3, 4, 0, 3, -2});
-    };
-
-    // "just overlap rotate"_test = [] {
-    //     expect(rotate(Buffer{1, 2, -2, 3}, 2) == Buffer{1, 2, 3, -2});
-    //     expect(rotate(Buffer{1, 2, 3, 4}, 1) == Buffer{1, 3, 4, 2});
-    // };
-
-    // "zero rotate"_test = [] {
-    //     expect(rotate(Buffer{0, 1, 2}, 0) == Buffer{0, 1, 2});
-    //     expect(rotate(Buffer{1, 2, 0}, 2) == Buffer{1, 2, 0});
-    // };
-    // "non-overflow positive rotate"_test = []
-    // {
-    //     expect(rotate(Buffer{3, 1, 2}, 1) == Buffer{3, 2, 1});
-    //     expect(rotate(Buffer{2, 3, 1}, 0) == Buffer{3, 1, 2});
-    //     expect(rotate(Buffer{2, 1, -3, 3, -2, 0, 4}, 0) == Buffer{1, -3, 2, 3, -2, 0, 4});
-    // };
-    // "non-overflow negative rotate"_test = []
-    // {
-    //     expect(rotate(Buffer{2, -1, 1}, 1) == Buffer{2, 1, -1});
-    //     expect(rotate(Buffer{2, 1, -2}, 2) == Buffer{-2, 2, 1});
-    //     expect(rotate(Buffer{2, 1, -3, 3, -2, 0, -4}, 6) == Buffer{2, 1, -4, -3, 3, -2, 0});
-    // };
-    // "reduced zero rotate"_test = [] 
-    // {
-    //     expect(rotate(Buffer{4, 2, 3, 0}, 0) == Buffer{4, 2, 3, 0});
-    // };
-    // "reduced positive rotate"_test = [] 
-    // {
-    //     expect(rotate(Buffer{5, 2, 3, 0}, 0) == Buffer{2, 5, 3, 0});
-    //     expect(rotate(Buffer{7, 2, 3, 0}, 0) == Buffer{2, 3, 0, 7});
-    // };
-    // "reduced negative rotate"_test = [] 
-    // {
-    //     expect(rotate(Buffer{1, 2, 3, -5}, 3) == Buffer{1, 2, -5, 3});
-    //     expect(rotate(Buffer{1, 2, 3, -7}, 3) == Buffer{-7, 1, 2, 3});
-    // };
-    // "overflow positive rotate"_test = []
-    // {
-    //     expect(rotate(Buffer{3, 4, 5, 6, 7, 8, 1}, 6) == Buffer {3, 1, 4, 5, 6, 7, 8});
-    //     expect(rotate(Buffer{3, 4, 5, 6, 7, 2, 8}, 5) == Buffer {3, 2, 4, 5, 6, 7, 8});
-    // };
-    // "overflow negative rotate"_test = [] 
-    // {
-    //     expect(rotate(Buffer{4, -2, 5, 6, 7, 8, 9}, 1) == Buffer {4, 5, 6, 7, 8, -2, 9});
-    //     expect(rotate(Buffer{-1, 4, 5, 6, 7, 8, 9}, 0) == Buffer {4, 5, 6, 7, 8, -1, 9});
-    // };
 }
 
 int main(int argc, char* argv[])
