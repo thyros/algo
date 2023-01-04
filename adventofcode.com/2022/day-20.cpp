@@ -1,144 +1,134 @@
 #include "utils.h"
 #include "ut.hpp"
+
 #include <algorithm>
+#include <cassert>
 #include <string>
 #include <vector>
 
-using Buffer = std::vector<int>;
+using T = long long;
+
 struct Node {
     Node* left = nullptr;
     Node* right = nullptr;
-    int value;
+    T value = 0;
 };
 
-void print(const std::vector<int>& v) {
-    for (int i: v) {
-        printf("%i ", i);
-    }
-}
+using Buffer = std::vector<Node>;
 
-
-Buffer parse(const Lines& lines) {
-    Buffer result(lines.size(), 0);
-    for (int i = 0; i < lines.size(); ++i) {
-        result[i] = std::stoi(lines[i]);
-    }
-    return result;
-}
-
-Node* createCircularBuffer(const Buffer& buffer) {
-    Node* head = nullptr;
-    Node* previous = nullptr;
-
-    for (int i: buffer) {
-        Node* current = new Node();
-        current->left = previous;
-        current->value = i;
-        current->right = nullptr;
-
-        if (!head) {
-            head = current;
-        }
-        if (previous) {
-            previous->right = current;
-        }
-
-        previous = current;
-    }
-
-    previous->right = head;
-    head->left = previous;
-
-    return head;
-}
-
-Node* findNode(Node* node, int v) {
-    Node* head = node;
-
+void print(const Buffer& buffer) {
+    const Node* head = &buffer[0];
+    const Node* temp = head;
     do {
-        if (node->value == v) {
-            return node;
-        }
-        node = node->right;
-
-    } while(node != head);
-
-    return nullptr;
-}
-
-void print(Node* node) {
-    Node* head = node;
-
-    do {
-        printf("%4i ", node->value);
-        node = node->right;
-    } while(node != head);
+        printf("%3lli ", temp->value);
+        temp = temp->right;
+    } while(head != temp);
     printf("\n");
 }
 
-void rotate(Node* node, int width) {
+void rotate(Node& node, int mod) {
+    const auto v = node.value;
+    const auto c = std::abs(v) % mod;
 
-    const int v = std::abs(node->value) % (width-1);
-    printf("Rotating %i by %i, width %i\n", node->value, v, width);
-
-    if (v == 0) {
+    if (c == 0) {
         return;
     }
 
-    node->left->right = node->right;
-    node->right->left = node->left;
+    Node* temp = &node;
+    node.right->left = node.left;
+    node.left->right = node.right;
 
-    Node* temp = node;
-    for (int i = 0; i < v; ++i) {
-        if (node->value > 0) temp = temp->right;
-        else if (node->value < 0) temp = temp->left;
+    if (v > 0) {
+        for (int i = 0; i < c; ++i)
+            temp = temp->right;
+
+        temp->right->left = &node;
+        node.right = temp->right;
+        temp->right = &node;
+        node.left = temp;
+
+    } else {
+        for (int i = 0; i < c; ++i)
+            temp = temp->left;
+
+        temp->left->right = &node;
+        node.left = temp->left;
+        temp->left = &node;
+        node.right = temp;
     }
 
-    if (node->value > 0) {
-        node->right = temp->right;
-        node->left = temp;
-    } else if (node->value < 0) {
-        node->right = temp;
-        node->left = temp->left;
-    }
-
-    node->right->left = node;
-    node->left->right = node;
 }
 
-Node* advance(Node* node, int c, int width) {
-    const int v = c % width;
-    for (int i = 0; i < v; ++i) {
+Node* advance(Node* node, int c) {
+    for (int i = 0; i < c; ++i) {
         node = node->right;
     }
     return node;
 }
 
-void part1(const Buffer& buffer) {
-
-    Node* node = createCircularBuffer(buffer);
-    Node* zero = findNode(node, 0);
-    // print(zero);
-    const int width = buffer.size();
-    for (int i = 0; i < width; ++i) {
-        const int v = buffer[i];
-        Node* c = findNode(zero, v);
-        rotate(c, width);
-        // print(zero);
+void part1(const Lines& lines) {
+    const int m = lines.size();
+    Buffer buffer(lines.size(), Node {});
+    for (int i = 0; i < lines.size(); ++i) {
+        buffer[i].value = std::stoi(lines[i]);
+        buffer[i].right = &buffer[(i + 1) % m];
+        buffer[i].left = &buffer[(i - 1 + m)%m];
     }
 
-    const int v1 = advance(zero, 1000, width)->value;
-    const int v2 = advance(zero, 2000, width)->value;
-    const int v3 = advance(zero, 3000, width)->value;
+    const int width = buffer.size();
 
-    printf("Part 1: %i = %i + %i + %i\n", v1+v2+v3, v1, v2, v3);
+    Node* zero = nullptr;
+    for (int i = 0; i < buffer.size(); ++i) {
+        Node& node = buffer[i];
+        if (node.value == 0) {
+            zero = &node;
+            continue;
+        }
+
+        rotate(node, width - 1);
+    }
+    const auto v1 = advance(zero, 1000)->value;
+    const auto v2 = advance(zero, 2000)->value;
+    const auto v3 = advance(zero, 3000)->value;
+
+    printf("Part 1: %lli = %lli + %lli + %lli\n", v1+v2+v3, v1, v2, v3);
+}
+
+void part2(const Lines& lines) {
+    const long long magicNumber = 811589153;
+    const int m = lines.size();
+    Buffer buffer(lines.size(), Node {});
+    for (int i = 0; i < lines.size(); ++i) {
+        buffer[i].value = std::stoll(lines[i]) * magicNumber;
+        buffer[i].right = &buffer[(i + 1) % m];
+        buffer[i].left = &buffer[(i - 1 + m)%m];
+    }
+
+    const int width = buffer.size();
+
+    Node* zero = nullptr;
+    for (int a = 0; a < 10; ++a) {
+        for (int i = 0; i < buffer.size(); ++i) {
+            Node& node = buffer[i];
+            if (node.value == 0) {
+                zero = &node;
+                continue;
+            }
+
+            rotate(node, width - 1);
+        }
+    }
+    const auto v1 = advance(zero, 1000)->value;
+    const auto v2 = advance(zero, 2000)->value;
+    const auto v3 = advance(zero, 3000)->value;
+
+    printf("Part 2: %lli = %lli + %lli + %lli\n", v1+v2+v3, v1, v2, v3);
 }
 
 void solve(const char* filename) {
     const Lines lines = readFile(filename);
-    const Buffer buffer = parse(lines);
-
-    part1(buffer);
+    part1(lines);
+    part2(lines);
 }
 
 void test()
@@ -151,6 +141,6 @@ int main(int argc, char* argv[])
 {
     test();
 
-    const char* filename = argc > 1 ? argv[1] : "day-20.sample";
+    const char* filename = argc > 1 ? argv[1] : "day-20.input";
     solve(filename);
 }
