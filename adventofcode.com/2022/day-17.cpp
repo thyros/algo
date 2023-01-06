@@ -1,3 +1,4 @@
+#include "hash.h"
 #include "utils.h"
 #include "point.h"
 #include <array>
@@ -17,6 +18,13 @@ constexpr int pieceSize = 4;
 constexpr int piecesCount = 5;
 using Piece = std::array<std::array<bool, pieceSize>, pieceSize>;
 using Pieces = std::array<Piece, piecesCount>;
+
+constexpr int stateLength = 10;
+using State = std::array<int, stateLength + 2>; // for jet index and piece index
+struct CacheValue {
+    int i, h;
+};
+using Cache = std::unordered_map<State, CacheValue, ArrayHash<stateLength + 2>>;
 
 void print(const Pieces& pieces) {
     for (int i = 0; i < pieces.size(); ++i) {
@@ -177,9 +185,27 @@ int fall(Board& board, const Piece& piece, Point position) {
     return -1;
 }
 
+State calculateState(int jetIndex, int pieceIndex, const Board& board) {
+    State state;
+
+    state[0] = jetIndex;
+    state[1] = pieceIndex;
+
+    int i = 2;
+    for (int y = board.height; y > board.height - stateLength; --y) {
+        state[i] = board.at(0, y) << 6 | board.at(1, y)  << 5 | board.at(2, y) << 4 | board.at(3, y) << 3 | board.at(4, y) << 2 | board.at(5, y) << 1 | board.at(6, y) << 0;
+        ++i;
+    }
+
+    return state;
+}
+
 int simulate(const Pieces& pieces, const std::vector<int>& heights, const std::string& input, int count) {
     Board board;
 
+    Cache cache;
+
+    int offset = 0;
     int ii = 0;
     for (int i = 0; i < count; ++i) {
         board.height += 3 + heights[i % heights.size()];
@@ -203,10 +229,21 @@ int simulate(const Pieces& pieces, const std::vector<int>& heights, const std::s
                 break;
             }
         } while (true);
-
         board.height = collapse(board);
+
+        const State state = calculateState(ii % input.size(), i % pieces.size(), board);
+        const auto it = cache.find(state);
+        if (it != end(cache)) {
+            const int rem = count - i;
+            const int rep = rem / (i - it->second.i);
+            const int offset = rep * (board.height - it->second.h);
+            i += rep * (i - it->second.i);
+            cache.erase(it);
+        }
+        cache[state] = {.i = i, .h = board.height};
+
     }
-    return board.height + 1;    // I count from 0
+    return board.height + offset + 1;    // I count from 0
 }
 
 void part1(const Pieces& pieces, const std::vector<int>& heights, const std::string& input) {
