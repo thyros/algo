@@ -13,7 +13,7 @@ template<>
 struct std::hash<Point> {
     std::size_t operator()(const Point& p) const noexcept
     {
-        constexpr int MAX_VALUE = 1000;
+        constexpr int MAX_VALUE = 1610612741;
         return ((p.x+MAX_VALUE)<<16)|((p.y+MAX_VALUE)&0xFFFF);
     }
 };

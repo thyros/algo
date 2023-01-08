@@ -2,9 +2,9 @@
 #include <array>
 #include <algorithm>
 
-template <int T>
+template <typename T, int C>
 struct ArrayHash {
-    std::size_t operator()(const std::array<int, T>& arr) const {
+    std::size_t operator()(const std::array<T, C>& arr) const {
         // std::size_t result = 0;
         // for (int i: arr) {
         //     result ^= i + 0x9e3779b9 + (result<<6) + (result>>2);
@@ -22,9 +22,9 @@ struct ArrayHash {
     }
 };
 
-template <int T>
+template <typename T, int C>
 struct ArrayEqual {
-    bool operator()(const std::array<int, T>& lhs, const std::array<int, T>& rhs) const
+    bool operator()(const std::array<T, C>& lhs, const std::array<T, C>& rhs) const
     {
         if (lhs.size() != rhs.size()) {
             return false;
