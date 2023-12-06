@@ -24,11 +24,11 @@ Lines readFile(const char* filename) {
     return readLines(file);
 }
 
-std::vector<std::string_view> tokenize2(std::string_view input, 
+Tokens tokenize2(std::string_view input, 
                                         std::string_view::size_type begin = 0, 
                                         std::string_view::size_type end = std::string_view::npos, 
                                         std::string_view delimeter = " ")  {
-	std::vector<std::string_view> tokens;
+	Tokens tokens;
 
 	size_t b = begin;
 
@@ -44,7 +44,7 @@ std::vector<std::string_view> tokenize2(std::string_view input,
 
 }
 
-std::vector<std::string_view> tokenize(const std::string_view& input, std::string_view delimeter = " ")
+Tokens tokenize(std::string_view input, std::string_view delimeter = " ")
 {
     return tokenize2(input, 0, std::string_view::npos, delimeter);
 }
