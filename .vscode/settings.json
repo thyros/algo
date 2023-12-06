@@ -74,6 +74,9 @@
         "cassert": "cpp",
         "source_location": "cpp",
         "ranges": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "mutex": "cpp",
+        "stop_token": "cpp",
+        "thread": "cpp"
     }
 }
