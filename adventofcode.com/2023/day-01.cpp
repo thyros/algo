@@ -161,7 +161,6 @@ void test() {
 
 int main(int argc, const char** argv) {
     test();
-    if (argc >= 2) {
-        std::cout << "Result: " << solve(argv[1]) << std::endl;
-    }
+    const char* filename = argc > 1 ? argv[1] : "day-01.sample";
+    solve(filename);
 }
