@@ -1,8 +1,14 @@
 #include "utils.h"
 #include "ut.hpp"
+#include <numeric>
+#include <set>
+
+bool isOnBoard(const Lines& lines, int y, int x) {
+    return y >= 0 && x >= 0 && y < lines.size() && x < lines[y].size();
+}
 
 bool hasSymbol(const Lines& lines, int y, int x) {
-    if (y < 0 || x < 0 || y >= lines.size() || x >= lines[y].size()) {
+    if (!isOnBoard(lines, y, x)) {
         return false;
     }
     const char c = lines[y][x];
@@ -39,6 +45,50 @@ size_t findNumberEnd(std::string_view row, size_t start) {
     return start;
 }
 
+size_t findNumberBegin(std::string_view row, size_t start) {
+    while (start > 0 && isdigit(row[start - 1])) {
+        --start;
+    }
+    
+    return start;
+}
+
+long long extractNumber(const Lines& lines, int y, int x) {
+    if (!isOnBoard(lines, y, x)) {
+        return -1;
+    }
+
+    if (!isdigit(lines[y][x])) {
+        return -1;
+    }
+
+    const size_t begin = findNumberBegin(lines[y], x);
+    const size_t end = findNumberEnd(lines[y], x);
+    long long number = to_number(lines[y], begin, end);
+    return number;
+}
+
+std::set<long long> findNumbersAround(const Lines& lines, int y, int x) {
+    std::set<long long> numbersAround;
+
+    for (int x_ = x - 1; x_ <= x + 1; ++x_) {
+        if (long long number = extractNumber(lines, y-1, x_); number > 0) {
+            numbersAround.insert(number);
+        }
+        if (long long number = extractNumber(lines, y + 1, x_); number > 0) {
+            numbersAround.insert(number);
+        }
+    }
+    if (long long number = extractNumber(lines, y, x - 1); number > 0) {
+        numbersAround.insert(number);
+    }
+    if (long long number = extractNumber(lines, y, x + 1); number > 0) {
+        numbersAround.insert(number);
+    }
+
+    return numbersAround;
+}
+
 void solve_part1(const Lines& lines) {
     long long sum = 0;
 
@@ -66,11 +116,22 @@ void solve_part1(const Lines& lines) {
         } while (x < row.size());        
     }
 
-    std::cout << "Total: " << sum << std::endl;
+    std::cout << "Total part 1: " << sum << std::endl;
 }
 
 void solve_part2(const Lines& lines) {
-    
+    long long sum = 0;
+    for (size_t y = 0; y < lines.size(); ++y) {
+        for (size_t x = 0; x < lines[y].size(); ++x) {
+            if (lines[y][x] == '*') {
+                const std::set<long long> numbersAround = findNumbersAround(lines, y, x);
+                if (numbersAround.size() == 2) {
+                    sum += std::accumulate(begin(numbersAround), end(numbersAround), 1ll, [](auto l, auto r) {return l * r; });
+                }
+            }
+        }
+    }
+    std::cout << "Total part 2: " << sum << std::endl;
 }
 
 void solve(const char* filename) {
