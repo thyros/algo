@@ -2,6 +2,8 @@
 
 #include <cassert>
 #include <fstream>
+#include <iostream>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -63,4 +65,8 @@ template <typename T1, typename T2, typename ... Args>
 auto max(const T1 &a, const T2 &b, const Args& ... args) -> typename std::common_type<const T1&, const T2&, const Args& ...>::type
 {
     return max(max(a, b), args...);
+}
+
+void printAll(auto container) {
+    std::copy(begin(container), end(container), std::ostream_iterator<double>(std::cout, " "));
 }
