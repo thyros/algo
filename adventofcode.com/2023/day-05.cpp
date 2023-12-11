@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "ut.hpp"
+#include <format>
 
 using Seeds = std::vector<long long>;
 
@@ -42,7 +43,12 @@ Mapping readMapping(std::string_view text) {
 PuzzleInput readPuzzleInput(const Lines& lines) {
     Seeds seeds = readSeeds(lines[0]);
 
+    std::cout << std::format("Read #{} seeds\n", seeds.size());
+
     std::vector<Section> sections {7, Section{}};
+
+
+    std::cout << std::format("Reading section: 0\n");
 
     size_t currentSection = 0;
     const size_t topLinesToSkip = 3;
@@ -51,7 +57,9 @@ PuzzleInput readPuzzleInput(const Lines& lines) {
             // current section is done, move to the next one
             y += 2;
             ++currentSection;
+            std::cout << std::format("Reading section: {}\n", currentSection);
         } else {
+            std::cout << std::format("\tReading line: {}\n", y);
             sections[currentSection].mappings.push_back(readMapping(lines[y]));
             ++y;
         }
@@ -61,23 +69,27 @@ PuzzleInput readPuzzleInput(const Lines& lines) {
 
 void solve(const char* filename) {
     const Lines& lines = readFile(filename);
+    std::cout << std::format("Read {} lines\n", lines.size());
 
     const PuzzleInput puzzleInput = readPuzzleInput(lines);
+    std::cout << std::format("Seeds: #{} sections: #{}\n", puzzleInput.seeds.size(), puzzleInput.sections.size());
 
     long long min = -1;
     for (long long seed: puzzleInput.seeds) {
-        std::cout << "Seed: " << seed << std::endl;
+        std::cout << std::format("Seed: {}\n", seed);
         for (const Section& section: puzzleInput.sections) {
             for (const Mapping& mapping: section.mappings) {
                 const long long previousSeed = seed;
                 seed = map(mapping, seed);
                 if (previousSeed != seed) { // seed was mapped in this section, skipping to the next one
+                    std::cout << std::format("\t{}->{}\n", previousSeed, seed);
                     break;
                 }
             }            
         }
 
         if (min == -1 || seed < min) {
+            std::cout << std::format("Updating min: {}->{}\n", min, seed);
             min = seed;
         }
     }
@@ -167,6 +179,6 @@ void test() {
 
 int main(int argc, const char** argv) {
     test();
-    const char* filename = argc > 1 ? argv[1] : "day-05.sample";
+    const char* filename = argc > 1 ? argv[1] : "day-05.input";
     solve(filename);
 }
