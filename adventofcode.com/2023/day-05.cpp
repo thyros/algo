@@ -2,13 +2,20 @@
 #include "ut.hpp"
 #include <format>
 
-using Seeds = std::vector<long long>;
+using T = long long;
 
+using Seeds = std::vector<T>;
 struct Mapping {
-    long long to;
-    long long from;
-    long long length;
+    T to;
+    T from;
+    T length;
 };
+
+struct Range {
+    T from;
+    T to;
+};
+using Ranges = std::vector<Range>;
 
 struct Section {
     std::vector<Mapping> mappings;
@@ -19,8 +26,8 @@ struct PuzzleInput {
     std::vector<Section> sections;
 };
 
-long long map(const Mapping& mapping, long long v) {
-    const long long offset = v - mapping.from;
+T map(const Mapping& mapping, T v) {
+    const T offset = v - mapping.from;
     if (offset >=0 && offset < mapping.length) {
         return mapping.to + offset;
     }
@@ -31,35 +38,26 @@ Seeds readSeeds(std::string_view text) {
     const size_t colon = text.find(':');
     const Tokens tokens = tokenize(text.substr(colon+ 2));
         
-    return tokensToNumbers<long long>(tokens);
+    return tokensToNumbers<T>(tokens);
 }
 
 Mapping readMapping(std::string_view text) {
-    const std::vector<long long> numbers = tokensToNumbers<long long>(tokenize(text));
+    const std::vector<T> numbers = tokensToNumbers<T>(tokenize(text));
 
     return Mapping {.to = numbers[0], .from = numbers[1], .length = numbers[2]};
 }
 
 PuzzleInput readPuzzleInput(const Lines& lines) {
     Seeds seeds = readSeeds(lines[0]);
-
-    std::cout << std::format("Read #{} seeds\n", seeds.size());
-
     std::vector<Section> sections {7, Section{}};
-
-
-    std::cout << std::format("Reading section: 0\n");
 
     size_t currentSection = 0;
     const size_t topLinesToSkip = 3;
     for (size_t y = topLinesToSkip; y < lines.size(); /* do nothing */) {
         if (!isdigit(lines[y][0])) {
-            // current section is done, move to the next one
             y += 2;
             ++currentSection;
-            std::cout << std::format("Reading section: {}\n", currentSection);
         } else {
-            std::cout << std::format("\tReading line: {}\n", y);
             sections[currentSection].mappings.push_back(readMapping(lines[y]));
             ++y;
         }
@@ -67,19 +65,13 @@ PuzzleInput readPuzzleInput(const Lines& lines) {
     return PuzzleInput {.seeds = std::move(seeds), .sections = std::move(sections)};
 }
 
-void solve(const char* filename) {
-    const Lines& lines = readFile(filename);
-    std::cout << std::format("Read {} lines\n", lines.size());
-
-    const PuzzleInput puzzleInput = readPuzzleInput(lines);
-    std::cout << std::format("Seeds: #{} sections: #{}\n", puzzleInput.seeds.size(), puzzleInput.sections.size());
-
-    long long min = -1;
-    for (long long seed: puzzleInput.seeds) {
+void solvePart1(const PuzzleInput& puzzleInput) {
+    T min = -1;
+    for (T seed: puzzleInput.seeds) {
         std::cout << std::format("Seed: {}\n", seed);
         for (const Section& section: puzzleInput.sections) {
             for (const Mapping& mapping: section.mappings) {
-                const long long previousSeed = seed;
+                const T previousSeed = seed;
                 seed = map(mapping, seed);
                 if (previousSeed != seed) { // seed was mapped in this section, skipping to the next one
                     std::cout << std::format("\t{}->{}\n", previousSeed, seed);
@@ -95,6 +87,74 @@ void solve(const char* filename) {
     }
 
     std::cout << "Result: " << min << std::endl;
+}
+
+Ranges fromSeeds(const Seeds& seeds) {
+    Ranges ranges;
+
+    for (size_t i = 0; i < seeds.size(); i+=2) {
+        ranges.push_back(Range {.from = seeds[i], .to = seeds[i] + seeds[i+1]});
+    }
+    return ranges;
+}
+
+void solvePart2(const PuzzleInput& puzzleInput) {
+    Ranges currentRanges = fromSeeds(puzzleInput.seeds);
+
+    for (size_t i = 0; i < puzzleInput.sections.size(); ++i) {
+        Ranges nextRanges;
+
+        while (!currentRanges.empty()) {
+            Range r = currentRanges.back();
+            currentRanges.pop_back();
+
+            const Section& section = puzzleInput.sections[i];
+            bool mapped = false;
+            for (const Mapping& m: section.mappings) {
+
+                const T of = std::max(r.from, m.from);          // overlap from
+                const T ot = std::min(r.to, m.from + m.length); // overlap to
+
+                if (of < ot) {
+                    nextRanges.push_back(Range {.from = of - m.from + m.to, .to = ot - m.from + m.to});
+
+                    if (of > r.from) {
+                        currentRanges.push_back(Range {.from = r.from, .to = of});
+                    }
+                    if (r.to > ot) {
+                        currentRanges.push_back(Range {.from = ot, .to = r.to});
+                    }
+
+                    mapped = true;
+                    break;
+                }
+            }
+
+            if (!mapped) {
+                nextRanges.push_back(r);
+            }
+        }
+
+        currentRanges = nextRanges;
+    }
+
+    std::sort(begin(currentRanges), end(currentRanges), [](const Range& l, const Range& r) { return l.from < r.from; });
+
+    std::cout << std::format("Part 2: {}\n", currentRanges[0].from);
+    for (const Range& r: currentRanges) {
+        std::cout << std::format("({},{})\n", r.from, r.to);
+    }
+}
+
+void solve(const char* filename) {
+    const Lines& lines = readFile(filename);
+    std::cout << std::format("Read {} lines\n", lines.size());
+
+    const PuzzleInput puzzleInput = readPuzzleInput(lines);
+    std::cout << std::format("Seeds: #{} sections: #{}\n", puzzleInput.seeds.size(), puzzleInput.sections.size());
+
+    solvePart1(puzzleInput);
+    solvePart2(puzzleInput);
 }
 
 void test() {
