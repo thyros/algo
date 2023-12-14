@@ -1,20 +1,22 @@
 #include "utils.h"
 #include "ut.hpp"
 #include <algorithm>
+#include <array>
 #include <format>
 #include <iostream>
 #include <unordered_map>
 
 using T = long long;
 
-struct Hand {
-    std::string cards;
-    T value;
+struct Play {
+    std::string hand;
     T bid;
 };
-using Hands = std::vector<Hand>;
+using Plays = std::vector<Play>;
 
 int cardToValue(const char c) {
+    // if (c == 'J')
+    //     return 1;
     if (c == 'T')
         return 10;
     if (c == 'J')
@@ -28,14 +30,60 @@ int cardToValue(const char c) {
     return c - '0';
 }
 
-bool handsDescending(const Hand& l, const Hand& r) {
-    if (l.value < r.value) {
+int handType(const std::string& hand) {
+    const std::unordered_map<char, int> cardsCount = [&hand] {
+        std::unordered_map<char, int> cardsCount;
+        for (char c: hand) {
+            ++cardsCount[c];
+        }
+        return cardsCount;
+    }();
+
+    const auto countValues = [&cardsCount](int value) {
+        return std::count_if(begin(cardsCount), end(cardsCount), [value](const auto& cardCount) { return cardCount.second == value; }); 
+    };
+
+    if (countValues(5) == 1) {           
+        return 6;                       // Five of a kind, where all five cards have the same label: AAAAA
+    } else if (countValues(4) == 1) {    
+        return 5;                       // Four of a kind, where four cards have the same label and one card has a different label: AA8AA
+    } else if (countValues(3) == 1) {
+        if (countValues(2) == 1) {
+            return 4;                   // Full house, where three cards have the same label, and the remaining two cards share a different label: 23332
+        }
+        return 3;                       // Three of a kind, where three cards have the same label, and the remaining two cards are each different from any other card in the hand: TTT98
+    } else if (countValues(2) == 2) {
+        return 2;                       // Two pair, where two cards share one label, two other cards share a second label, and the remaining card has a third label: 23432
+    } else if (countValues(2) == 1) {
+        return 1;                       // One pair, where two cards share one label, and the other three cards have a different label from the pair and each other: A23A4
+    }
+    return 0;                           // High card, where all cards' labels are distinct: 23456
+}
+
+int promoteType(int type, int times) {
+    
+    for (int i = 0; i < times; ++i) {
+        if (type == 5) type = 6;
+        else if (type == 3) type = 5;
+        else if (type == 2) type = 4;
+        else if (type == 1) type = 3;
+        else if (type == 0) type = 1;
+    }
+
+    return type;
+}
+
+bool greater(const Play& l, const Play& r) {
+    int lv = handType(l.hand);
+    int rv = handType(r.hand);
+
+    if (lv < rv) {
         return true;
     }
-    if (l.value == r.value) {
-        for (size_t i = 0; i < l.cards.size(); ++i) {
-            const int lv = cardToValue(l.cards[i]);
-            const int rv = cardToValue(r.cards[i]);
+    if (lv == rv) {
+        for (size_t i = 0; i < l.hand.size(); ++i) {
+            const int lv = cardToValue(l.hand[i]);
+            const int rv = cardToValue(r.hand[i]);
             if (lv < rv) {
                 return true;
             } else if (lv > rv) {
@@ -47,84 +95,41 @@ bool handsDescending(const Hand& l, const Hand& r) {
     return false;
 }
 
-std::vector<Hand> parse(const Lines& lines) {
+std::vector<Play> parse(const Lines& lines) {
     const auto parseHand = [](const std::string& line) {
         std::istringstream istr(line);
 
-        Hand hand;
-        istr >> hand.cards;
+        Play hand;
+        istr >> hand.hand;
         istr >> hand.bid;
         return hand;
     };
 
-    std::vector<Hand> hands;
+    std::vector<Play> plays;
     for (const std::string& line: lines) {
-        hands.push_back(parseHand(line));
+        plays.push_back(parseHand(line));
     }
 
-    return hands;
+    return plays;
 }
 
-int getHighestCard(std::string cards) {
-    std::sort(begin(cards), end(cards), [](const char l, const char r) { return cardToValue(r) < cardToValue(l); });
-    const char c = cards[0];
-    return cardToValue(c);
-}
-
-bool anyCardHasValue(const std::unordered_map<char, int>& cardsCount, int value) {
-    return std::any_of(begin(cardsCount), end(cardsCount), [value](const auto& cardCount) { return cardCount.second == value; });
-}
-
-int rateCards(const std::string& cards) {
-    std::unordered_map<char, int> cardsCount;
-
-    for (char c: cards) { 
-        ++cardsCount[c];
-    }
-
-    // 1000 - (1) - Five of a kind, where all five cards have the same label: AAAAA
-    // 900  - (2) - Four of a kind, where four cards have the same label and one card has a different label: AA8AA
-    // 800  - (2) - Full house, where three cards have the same label, and the remaining two cards share a different label: 23332
-    // 700  - (3) - Three of a kind, where three cards have the same label, and the remaining two cards are each different from any other card in the hand: TTT98
-    // 600  - (3) - Two pair, where two cards share one label, two other cards share a second label, and the remaining card has a third label: 23432
-    // 500  - (4) - One pair, where two cards share one label, and the other three cards have a different label from the pair and each other: A23A4
-    // x    - (5) - High card, where all cards' labels are distinct: 23456
-
-    if (cardsCount.size() == 1) {           // Five of a kind
-        return 1000;
-    } else if (cardsCount.size() == 2) {    // Four of a kind or Full house
-        const bool isFourOfKind = anyCardHasValue(cardsCount, 4);
-        return isFourOfKind ? 900 : 800;
-    } else if (cardsCount.size() == 3) {    // Three of a kind or Two pair
-        const bool isTreeOfKind = anyCardHasValue(cardsCount, 3);
-        return isTreeOfKind ? 700 : 600;
-    } else if (cardsCount.size() == 4) {    // One Pair
-        return 500;
-    }
-    // High card
-    return getHighestCard(cards);
-}
-
-void solvePart1(Hands hands) {
-    for (Hand& hand: hands) {
-        hand.value = rateCards(hand.cards);
-    }
-    std::sort(begin(hands), end(hands), handsDescending);
+void solvePart1(Plays plays) {
+    std::sort(begin(plays), end(plays), greater);
 
     T result = 0;
-    for (size_t i = 0; i < hands.size(); ++i) {
+    for (size_t i = 0; i < plays.size(); ++i) {
         size_t rank = i + 1;
-        std::cout << std::format("\t {}: {} ({}) {}\n", rank, hands[i].cards, hands[i].value, hands[i].bid);
-        result += rank * hands[i].bid;
+        std::cout << std::format("\t {}: {} ({}) {}\n", rank, plays[i].hand, handType(plays[i].hand), plays[i].bid);
+        result += rank * plays[i].bid;
     }
     std::cout << std::format("Part 1: {}\n", result);
 }
 
 void solve(const char* filename) {
     const Lines& lines = readFile(filename);
-    const Hands hands = parse(lines);
+    const Plays plays = parse(lines);
 
-    solvePart1(hands);
+    solvePart1(plays);
 }
 
 void test() {
@@ -132,40 +137,60 @@ void test() {
 
     "Parsing sample input"_test = [] {
         const Lines lines = {{"32T3K 765"},{"T55J5 684"},{"KK677 28"},{"KTJJT 220"},{"QQQJA 483"}};
-        const Hands hands = parse(lines);
+        const Plays plays = parse(lines);
 
-        expect(5_i == hands.size());
-        expect(765_i == hands[0].bid);
-        expect(684_i == hands[1].bid);
-        expect(28_i == hands[2].bid);
-        expect(220_i == hands[3].bid);
-        expect(483_i == hands[4].bid);
+        expect(5_i == plays.size());
+        expect(765_i == plays[0].bid);
+        expect(684_i == plays[1].bid);
+        expect(28_i == plays[2].bid);
+        expect(220_i == plays[3].bid);
+        expect(483_i == plays[4].bid);
 
-        expect("32T3K" == hands[0].cards);
-        expect("T55J5" == hands[1].cards);
-        expect("KK677" == hands[2].cards);
-        expect("KTJJT" == hands[3].cards);
-        expect("QQQJA" == hands[4].cards);
+        expect("32T3K" == plays[0].hand);
+        expect("T55J5" == plays[1].hand);
+        expect("KK677" == plays[2].hand);
+        expect("KTJJT" == plays[3].hand);
+        expect("QQQJA" == plays[4].hand);
     };
 
     "Type of the hand is calculated properly"_test = [] {
-        expect(1000_i == rateCards("55555"));
-        expect(900_i == rateCards("55553"));
-        expect(800_i == rateCards("55533"));
-        expect(700_i == rateCards("55543"));
-        expect(600_i == rateCards("55443"));
-        expect(500_i == rateCards("55432"));
-        expect(6_i == rateCards("45632"));        
-        expect(14_i == rateCards("65A32"));
+        expect(6_i == handType("55555"));
+        expect(5_i == handType("55553"));
+        expect(4_i == handType("55533"));
+        expect(3_i == handType("55543"));
+        expect(2_i == handType("55443"));
+        expect(1_i == handType("55432"));
+        expect(0_i == handType("45632"));        
+        expect(0_i == handType("65A32"));
     };
 
     "Cards are compared properly"_test = [] {
-        const Hand max {.cards = "AAJAA", .value = 900, .bid = 0};
-        const Hand mid {.cards = "TTQTT", .value = 900, .bid = 0};
-        const Hand small {.cards = "TTTJT", .value = 900, .bid = 0};
-        expect(handsDescending(small, mid));
-        expect(handsDescending(mid, max));
-        expect(handsDescending(small, max));
+        const Play max {.hand = "AAJAA", .bid = 0};
+        const Play mid {.hand = "TTQTT", .bid = 0};
+        const Play small {.hand = "TTTJT", .bid = 0};
+        const Play smallest {.hand = "2AAAA", .bid = 0};
+        expect(greater(small, mid));
+        expect(greater(mid, max));
+        expect(greater(small, max));
+
+        expect(greater(smallest, small));
+        expect(greater(smallest, mid));
+        expect(greater(smallest, max));
+    };
+
+    "Card value"_test = [] {
+        expect(cardToValue('A') > cardToValue('K'));
+        expect(cardToValue('K') > cardToValue('Q'));
+        expect(cardToValue('Q') > cardToValue('J'));
+        expect(cardToValue('J') > cardToValue('T'));
+        expect(cardToValue('T') > cardToValue('9'));
+        expect(cardToValue('9') > cardToValue('8'));
+        expect(cardToValue('8') > cardToValue('7'));
+        expect(cardToValue('7') > cardToValue('6'));
+        expect(cardToValue('6') > cardToValue('5'));
+        expect(cardToValue('5') > cardToValue('4'));
+        expect(cardToValue('4') > cardToValue('3'));
+        expect(cardToValue('3') > cardToValue('2'));
     };
 }
 
