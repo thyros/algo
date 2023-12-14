@@ -15,8 +15,8 @@ struct Play {
 using Plays = std::vector<Play>;
 
 int cardToValue(const char c) {
-    // if (c == 'J')
-    //     return 1;
+    if (c == 'J')
+        return 1;
     if (c == 'T')
         return 10;
     if (c == 'J')
@@ -30,37 +30,8 @@ int cardToValue(const char c) {
     return c - '0';
 }
 
-int handType(const std::string& hand) {
-    const std::unordered_map<char, int> cardsCount = [&hand] {
-        std::unordered_map<char, int> cardsCount;
-        for (char c: hand) {
-            ++cardsCount[c];
-        }
-        return cardsCount;
-    }();
-
-    const auto countValues = [&cardsCount](int value) {
-        return std::count_if(begin(cardsCount), end(cardsCount), [value](const auto& cardCount) { return cardCount.second == value; }); 
-    };
-
-    if (countValues(5) == 1) {           
-        return 6;                       // Five of a kind, where all five cards have the same label: AAAAA
-    } else if (countValues(4) == 1) {    
-        return 5;                       // Four of a kind, where four cards have the same label and one card has a different label: AA8AA
-    } else if (countValues(3) == 1) {
-        if (countValues(2) == 1) {
-            return 4;                   // Full house, where three cards have the same label, and the remaining two cards share a different label: 23332
-        }
-        return 3;                       // Three of a kind, where three cards have the same label, and the remaining two cards are each different from any other card in the hand: TTT98
-    } else if (countValues(2) == 2) {
-        return 2;                       // Two pair, where two cards share one label, two other cards share a second label, and the remaining card has a third label: 23432
-    } else if (countValues(2) == 1) {
-        return 1;                       // One pair, where two cards share one label, and the other three cards have a different label from the pair and each other: A23A4
-    }
-    return 0;                           // High card, where all cards' labels are distinct: 23456
-}
-
-int promoteType(int type, int times) {
+int promoteType(int type, int times) {    
+    if (times == 5) { return 6; }
     
     for (int i = 0; i < times; ++i) {
         if (type == 5) type = 6;
@@ -71,6 +42,44 @@ int promoteType(int type, int times) {
     }
 
     return type;
+}
+
+int handType(const std::string& hand) {
+    const std::unordered_map<char, int> cardsCount = [&hand] {
+        std::unordered_map<char, int> cardsCount;
+        for (char c: hand) {
+            if (c == 'J') {
+                continue;
+            }
+            ++cardsCount[c];
+        }
+        return cardsCount;
+    }();
+
+    const auto getType = [&cardsCount] {
+        const auto countValues = [&cardsCount](int value) {
+            return std::count_if(begin(cardsCount), end(cardsCount), [value](const auto& cardCount) { return cardCount.second == value; }); 
+        };
+
+        if (countValues(5) == 1) {           
+            return 6;                       // Five of a kind, where all five cards have the same label: AAAAA
+        } else if (countValues(4) == 1) {    
+            return 5;                       // Four of a kind, where four cards have the same label and one card has a different label: AA8AA
+        } else if (countValues(3) == 1) {
+            if (countValues(2) == 1) {
+                return 4;                   // Full house, where three cards have the same label, and the remaining two cards share a different label: 23332
+            }
+            return 3;                       // Three of a kind, where three cards have the same label, and the remaining two cards are each different from any other card in the hand: TTT98
+        } else if (countValues(2) == 2) {
+            return 2;                       // Two pair, where two cards share one label, two other cards share a second label, and the remaining card has a third label: 23432
+        } else if (countValues(2) == 1) {
+            return 1;                       // One pair, where two cards share one label, and the other three cards have a different label from the pair and each other: A23A4
+        }
+        return 0;                           // High card, where all cards' labels are distinct: 23456
+    };
+
+    const int jokerCount = std::count(begin(hand), end(hand), 'J');
+    return promoteType(getType(), jokerCount);
 }
 
 bool greater(const Play& l, const Play& r) {
@@ -113,7 +122,10 @@ std::vector<Play> parse(const Lines& lines) {
     return plays;
 }
 
-void solvePart1(Plays plays) {
+void solve(const char* filename) {
+    const Lines& lines = readFile(filename);
+    Plays plays = parse(lines);
+
     std::sort(begin(plays), end(plays), greater);
 
     T result = 0;
@@ -122,14 +134,7 @@ void solvePart1(Plays plays) {
         std::cout << std::format("\t {}: {} ({}) {}\n", rank, plays[i].hand, handType(plays[i].hand), plays[i].bid);
         result += rank * plays[i].bid;
     }
-    std::cout << std::format("Part 1: {}\n", result);
-}
-
-void solve(const char* filename) {
-    const Lines& lines = readFile(filename);
-    const Plays plays = parse(lines);
-
-    solvePart1(plays);
+    std::cout << std::format("Result: {}\n", result);
 }
 
 void test() {
