@@ -239,6 +239,6 @@ void test() {
 
 int main(int argc, const char** argv) {
     test();
-    const char* filename = argc > 1 ? argv[1] : "day-03.sample";
+    const char* filename = argc > 1 ? argv[1] : "day03.sample";
     solve(filename);
 }
