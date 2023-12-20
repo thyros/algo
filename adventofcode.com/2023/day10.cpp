@@ -3,6 +3,7 @@
 #include "ut.hpp"
 #include <array>
 #include <format>
+#include <optional>
 #include <unordered_set>
 
 using Offsets = std::array<Point, 2>;
@@ -12,53 +13,36 @@ struct MoveResult {
     Point nextOffset;
 };
 
+// finds the replacement character for the 'S' tile based on surrounding tiles
 char getStartingPointReplacement(const Lines& lines, const size_t height, const size_t width, Point start) {
-    std::unordered_set<char> result {'-', '|', 'F', 'J', 'L', '7'};
-
-    if (start.y > 0) {
-        const char c = lines[start.y - 1][start.x];
-        if (c != '|' && c != 'F' && c != '7') {
-            result.erase('|');
-            result.erase('J');
-            result.erase('L');
+    const auto getTile = [&lines, height, width](int x, int y) -> std::optional<char> {
+        if (x < 0 || x >= width || y < 0 || y >= height) {
+            return {};
         }
-    } else {
+        return std::make_optional(lines[y][x]);
+    };
+
+    std::unordered_set<char> result {'-', '|', 'F', 'J', 'L', '7'};
+    const auto up = getTile(start.x, start.y - 1);
+    if (!up || (*up != '|' && *up != 'F' && *up != '7')) {
         result.erase('|');
         result.erase('J');
         result.erase('L');
     }
-    if (start.x > 0) {
-        const char c = lines[start.y][start.x - 1];
-        if (c != '-' && c != 'L' && c != 'F') {
-            result.erase('-');
-            result.erase('J');
-            result.erase('7');
-        }
-    } else {
+    const auto left = getTile(start.x - 1, start.y);
+    if (!left || (*left != '-' && *left != 'L' && *left != 'F')) {
         result.erase('-');
         result.erase('J');
         result.erase('7');
     }
-    if (start.y < height - 1) {
-        const char c = lines[start.y + 1][start.x];
-        if (c != '|' && c != 'L' && c != 'J') {
-            result.erase('|');
-            result.erase('7');
-            result.erase('F');
-        }
-    } else {
+    const auto down = getTile(start.x, start.y + 1);
+    if (!down || (*down != '|' && *down != 'L' && *down != 'J')) {
         result.erase('|');
         result.erase('7');
         result.erase('F');
     }
-    if (start.x < width - 1) {
-        const char c = lines[start.y][start.x + 1];
-        if (c != '-' && c != '7' && c != 'J') {
-            result.erase('-');
-            result.erase('L');
-            result.erase('F');
-        }
-    } else {
+    const auto right = getTile(start.x + 1, start.y);
+    if (!right || (*right!= '-' && *right!= '7' && *right!= 'J')) {
         result.erase('-');
         result.erase('L');
         result.erase('F');
@@ -66,6 +50,8 @@ char getStartingPointReplacement(const Lines& lines, const size_t height, const 
     return *result.begin();
 }
 
+// returns two possible directions of the given pipe
+// it assumes each pipe has two ends
 Offsets getOffsetsForChar(const char c) {
     if (c == '|') return { Point {0, -1}, Point {0, 1} };
     if (c == '-') return { Point {-1, 0}, Point {1, 0} };
@@ -77,6 +63,7 @@ Offsets getOffsetsForChar(const char c) {
     return { Point {0,0}, Point {0,0} };
 }
 
+// an utility to extract an element from two dimentional array
 auto& elementAt(auto& c, const Point& p) {
     return c[p.y][p.x];
 }
