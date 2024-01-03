@@ -9,6 +9,10 @@
 using T = long long;
 using Matrix = std::vector<std::vector<int>>;
 
+enum class Dir {
+    U, D, R, L
+};
+
 struct Node {
     Point pos {0,0};
     Point parent {0,0};
@@ -23,15 +27,53 @@ inline bool operator < (const Node& lhs, const Node& rhs) {
     return lhs.fCost < rhs.fCost;
 }
 
-inline bool isValid(int x, int y, int width, int height) {
+auto& at(auto& container, Point p) {
+    return container[p.y][p.x];
+}
+
+inline bool isOnBoard(int x, int y, int width, int height) {
     return x >= 0 && y >= 0 && x < width && y < height;
+}
+
+Dir toDir(int x, int y, int newX, int newY) {
+    if (newX > x) return Dir::R;
+    if (newX < x) return Dir::L;
+    if (newY > y) return Dir::D;
+    return Dir::U;
+}
+
+bool isValidMove(Point current, Point newP, const Map& map) {
+    const auto x = current.x;
+    const auto y = current.y;
+    const Point parent = at(map, current).parent;
+    if ((parent.x == -1 && parent.y == -1) || (parent.x == x && parent.y == y)) {
+        return true;
+    }
+
+    const Dir newDir = toDir(current.x, current.y, newP.x, newP.y);
+    const Dir oldDir = toDir(parent.x, parent.y, x, y);
+    if (oldDir == Dir::R && newP.x < x) {
+        return false;
+    }
+    if (oldDir == Dir::L && newP.x > x) {
+        return false;
+    }
+    if (oldDir == Dir::U && newP.y > y) {
+        return false;
+    }
+    if (oldDir == Dir::D && newP.y < y) {
+        return false;
+    }
+    return true;
 }
 
 inline bool reachedEnd(int x, int y, Point to) {
     return x == to.x && y == to.y;
 }
 
-std::vector<Point> getNeighbours(int x, int y) {
+std::vector<Point> getNeighbours(Point p) {
+    const auto x = p.x;
+    const auto y = p.y;
     const std::vector<Point> result { Point{x-1, y}, Point{x, y-1}, Point{x+1,y}, Point{x, y+1}};
     return result;
 }
@@ -43,7 +85,7 @@ Nodes makePath(const Map& map, Point to) {
     int y = to.y;
     while (!(map[y][x].parent.x == x && map[y][x].parent.y == y) && map[y][x].pos.x != -1 && map[y][x].pos.y != -1) {
         result.push_back(map[y][x]);
-        const Point p = map[y][x].pos;
+        const Point p = map[y][x].parent;
         x = p.x;
         y = p.y;
     };
@@ -57,8 +99,16 @@ float calculateH(int x, int y, Point to) {
     return (to.x - x) + (to.y - y);
 }
 
-auto& at(auto& container, Point p) {
-    return container[p.y][p.x];
+void printMap(const Map& map, Point p) {
+    std::cout << std::format("{},{}\n", p.x, p.y);
+    for (const auto& row: map) {
+        for (const Node& node: row) {
+            // std::cout << std::format("{:2},{:2} ", node.pos.x, node.pos.y);
+            const auto cost = node.fCost;
+            std::cout << std::format("{:2} ", cost > 10000 ? 0 : cost);
+        }
+        std::cout << "\n";
+    }
 }
 
 Nodes astar(Point from, Point to, const Matrix& matrix) {
@@ -72,21 +122,20 @@ Nodes astar(Point from, Point to, const Matrix& matrix) {
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            allMap[y][x].pos = Point {x, y};
+            at(allMap, Point{x, y}).pos = Point {x, y};
         }
     }
 
 
-    int x = from.x;
-    int y = from.y;
+    Point p = from;
 
-    allMap[y][x].fCost = 0;
-    allMap[y][x].gCost = 0;
-    allMap[y][x].hCost = 0;
-    allMap[y][x].parent = Point {x, y};
+    at(allMap, p).fCost = 0;
+    at(allMap, p).gCost = 0;
+    at(allMap, p).hCost = 0;
+    at(allMap, p).parent = p;
     
     std::vector<Node> openList;
-    openList.emplace_back(allMap[x][y]);
+    openList.emplace_back(at(allMap, p));
     bool destinationFound = false;
 
     while (!openList.empty() && openList.size() < width * height) {
@@ -105,28 +154,35 @@ Nodes astar(Point from, Point to, const Matrix& matrix) {
 
             node = *itNode;
             openList.erase(itNode);
-        } while (isValid(node.pos.x, node.pos.y, width, height) == false);
+        } while (isOnBoard(node.pos.x, node.pos.y, width, height) == false);
 
-        x = node.pos.x;
-        y = node.pos.y;
-        closedList[y][x] = true;
+        printMap(allMap, p);
 
-        for (Point offset: getNeighbours(x, y)) {
-            int newX = x + offset.x;
-            int newY = y + offset.y;
+        p = node.pos;
+        closedList[p.y][p.x] = true;
+    
+        for (Point newP: getNeighbours(p)) {
+            const int newX = newP.x;
+            const int newY = newP.y;
+            const int pX = at(allMap, p).parent.x;
+            const int pY = at(allMap, p).parent.y;
 
-            if (!isValid(newX, newY, width, height)) {
+            if (!isOnBoard(newX, newY, width, height)) {
+                continue;
+            }
+
+            if (!isValidMove(p, newP, allMap)) {
                 continue;
             }
 
             else if (reachedEnd(newX, newY, to)) {
-                allMap[y][x].parent = Point {x, y};
+                at(allMap, newP).parent = p;
                 destinationFound = true;
                 return makePath(allMap, to);
             }
 
             else if (closedList[newY][newX] == false) {
-                const float gNew = matrix[newY][newX];
+                const float gNew = at(matrix, newP);
                 const float hNew = calculateH(newX, newY, to);
                 const float fNew = gNew + hNew;
 
@@ -137,7 +193,7 @@ Nodes astar(Point from, Point to, const Matrix& matrix) {
                     nextNode.fCost = fNew;
                     nextNode.gCost = gNew;
                     nextNode.hCost = hNew;
-                    nextNode.parent = Point {x, y};
+                    nextNode.parent = p;
                     openList.emplace_back(nextNode);
                 }
             }
