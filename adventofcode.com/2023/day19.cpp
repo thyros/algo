@@ -8,15 +8,15 @@ using T = long long;
 
 struct Condition {
     char param;
-    T value;
     char op;
-    std::string id;
+    T value;
+    std::string flowId;
 };
 
 struct Workflow {
     std::string id;
     std::vector<Condition> conditions;
-    std::string defaultWorkflow;
+    std::string fallback;
 };
 using Workflows = std::unordered_map<std::string, Workflow>;
 
@@ -34,18 +34,15 @@ enum class PartResult {
     accepted
 };
 
-struct PartRange{
-    std::pair<T,T>x;
-    std::pair<T,T> m;
-    std::pair<T,T> a;
-    std::pair<T,T> s;
-    PartResult result;
+struct Range {
+    T min;
+    T max;
 };
-using PartRanges = std::vector<PartRange>;
+using PartRange = std::unordered_map<char, Range>;
 
 Workflow parseWorkflow(const std::string& line) {
     const Tokens tokens = tokenize(line, "{");
-    const std::string id {tokens[1]};
+    const std::string id {tokens[0]};
 
     const Tokens conditionTokens = tokenize(tokens[1], ",");
     std::vector<Condition> conditions;
@@ -53,9 +50,9 @@ Workflow parseWorkflow(const std::string& line) {
         const std::string_view t = conditionTokens[i];
         const size_t colon = t.find(':');
         const T value{std::stoll(toString(t.substr(2, colon - 2)))};
-        const std::string defaultWorkflow{t.substr(colon + 1)};
+        const std::string flowId{t.substr(colon + 1)};
 
-        conditions.push_back(Condition {.param = t[0], .value = value, .op = t[1], .id = defaultWorkflow});
+        conditions.push_back(Condition {.param = t[0], .op = t[1], .value = value, .flowId = flowId});
     }
 
     // the last condition is a default workflow. Use it directly but without the '}'
@@ -122,14 +119,14 @@ bool accept(const Workflows& workflows, const Part& part, std::string workflow) 
         for (const Condition& c: w.conditions) {
             const T& paramValue = at(part, c.param);
             if (op(c.op, paramValue, c.value)) {
-                workflow = c.id;
+                workflow = c.flowId;
                 handled = true;
                 break;
             }
         }
 
         if (!handled) {
-            workflow = w.defaultWorkflow;
+            workflow = w.fallback;
         }
     }
     return false;
@@ -147,17 +144,64 @@ void solvePart1(const Workflows& workflows, const Parts& parts, const std::strin
         }
     }
 
-    std::cout << std::format("part 1: {}\n", total);
+    std::cout << std::format("Part 1: {}\n", total);
+}
+
+T count(const Workflows& workflows, PartRange partRange, const std::string& workflow) {
+    if (workflow == "A") {
+        T product = 1;
+        for (auto range: partRange) {
+            product *= range.second.max - range.second.min + 1;
+        }
+        return product;
+    } else if (workflow == "R") {
+        return 0;
+    }
+
+    const Workflow& w = workflows.at(workflow);
+    bool handled = false;
+
+    T total = 0;
+    for (const Condition& c: w.conditions) {
+        const Range r {partRange[c.param]};
+        Range trueBranch;
+        Range falseBranch;
+        if (c.op == '<') {
+            trueBranch = Range {r.min, c.value - 1};
+            falseBranch = Range {c.value, r.max};
+        } else {
+            trueBranch = Range {c.value + 1, r.max};
+            falseBranch = Range {r.min, c.value};
+        }
+
+        if (trueBranch.min <= trueBranch.max) {
+            partRange[c.param] = trueBranch;
+            total += count(workflows, partRange, c.flowId);
+            handled = true;
+        } else if (falseBranch.min <= falseBranch.max) {
+            partRange[c.param] = falseBranch;
+            total += count(workflows, partRange, c.flowId);
+            handled = true;
+        }
+
+        // restore original range to avoid copying partRange
+        // on the other hand it's error prone and the performance gain should
+        // be measured
+        partRange[c.param] = r;
+    }
+
+    if (!handled) {
+        total += count(workflows, partRange, w.fallback);
+    }
+
+    return total;
 }
 
 void solvePart2(const Workflows& workflows, std::string inWorkflow) {
-    PartRanges ranges { PartRange {{0, 4000}, {0, 4000}, {0, 4000}, {0, 4000}}};
+    const PartRange range = {{'x', {1, 4000}}, {'m',{1, 4000}}, {'a',{1, 4000}}, {'s',{1, 4000}}};
 
-    while (1) {
-        PartRanges nextRanges;
-
-
-    }
+    const T total = count(workflows, range, "in");
+    std::cout << std::format("Part 2: {}\n", total);
 }
 
 void solve(const char* filename) {
@@ -165,6 +209,7 @@ void solve(const char* filename) {
 
     const auto [workflows, parts] = parse(lines);
     solvePart1(workflows, parts, "in");
+    solvePart2(workflows, "in");
 }
 
 void test() {
@@ -176,11 +221,11 @@ void test() {
         expect(workflow.conditions.size() == 2_i);
         expect(workflow.conditions[0].param == 'a');
         expect(workflow.conditions[0].value == 2006_i);
-        expect(workflow.conditions[0].id == "qkq");
+        expect(workflow.conditions[0].flowId == "qkq");
         expect(workflow.conditions[1].param == 'm');
         expect(workflow.conditions[1].value == 2090_i);
-        expect(workflow.conditions[1].id == "A");
-        expect(workflow.defaultWorkflow == "rfg");
+        expect(workflow.conditions[1].flowId == "A");
+        expect(workflow.fallback == "rfg");
     };
 
     "Parsing parts"_test = [] {
@@ -191,28 +236,40 @@ void test() {
         expect(part.s == 2876_i);
     };
 
-    // "splitting a single range"_test = [] {
-    //     PartRanges nextRanges = split(PartRange{{0, 4000}, {0, 4000}, {0, 4000}, {0, 4000}}, 'x', '<', 1000);
+    "Count on workflow with no condition should just return the range"_test = [] {
+        const Workflows workflows { {"in", Workflow{.id = "in", .conditions = {}, .fallback = "A"}} };
+        const PartRange range = {{'x', {1, 4000}}, {'m',{1, 4000}}, {'a',{1, 4000}}, {'s',{1, 4000}}};
+    
+        const T total = count(workflows, range, "in");
+        expect(total == std::pow(4000, 4)); // 
+    };
 
-    //     expect(nextRanges.size() == 2_i);
-    //     expect(nextRanges[0].x.first == 0_i);
-    //     expect(nextRanges[0].x.second == 999_i);
-    //     expect(nextRanges[0].m.first == 0_i);
-    //     expect(nextRanges[0].m.second == 4000_i);
-    //     expect(nextRanges[0].a.first == 0_i);
-    //     expect(nextRanges[0].a.second == 4000_i);
-    //     expect(nextRanges[0].s.first == 0_i);
-    //     expect(nextRanges[0].s.second == 4000_i);
+    "Count is 0 if range is rejected"_test = [] {
+        const Workflows workflows { {"in", Workflow{.id = "in", .conditions = {}, .fallback = "R"}} };
+        const PartRange range = {{'x', {1, 4000}}, {'m',{1, 4000}}, {'a',{1, 4000}}, {'s',{1, 4000}}};
+    
+        const T total = count(workflows, range, "in");
+        expect(total == 0);
+    };
 
-    //     expect(nextRanges[1].x.first == 0_i);
-    //     expect(nextRanges[1].x.second == 1000_i);
-    //     expect(nextRanges[1].m.first == 0_i);
-    //     expect(nextRanges[1].m.second == 4000_i);
-    //     expect(nextRanges[1].a.first == 0_i);
-    //     expect(nextRanges[1].a.second == 4000_i);
-    //     expect(nextRanges[1].s.first == 0_i);
-    //     expect(nextRanges[1].s.second == 4000_i);
-    // };
+    "Count is the range length if the true branch accepts"_test = [] {
+        const Workflows workflows { {"in", 
+            Workflow{.id = "in", .conditions = {Condition{.param = 'x', .op = '<', .value = 1000, .flowId = "A"}}, .fallback = "A"}} };
+        const PartRange range = {{'x', {1, 4000}}, {'m',{1, 4000}}, {'a',{1, 4000}}, {'s',{1, 4000}}};
+    
+        const T total = count(workflows, range, "in");
+        const T rangeLength = 1000 - 1;
+        expect(total == rangeLength * std::pow(4000, 3));
+    };
+  
+    "Count is 0 if the true branch rejects"_test = [] {
+        const Workflows workflows { {"in", 
+            Workflow{.id = "in", .conditions = {Condition{.param = 'x', .op = '<', .value = 1000, .flowId = "R"}}, .fallback = "A"}} };
+        const PartRange range = {{'x', {1, 4000}}, {'m',{1, 4000}}, {'a',{1, 4000}}, {'s',{1, 4000}}};
+    
+        const T total = count(workflows, range, "in");
+        expect(total == 0_i);
+    };
 }
 
 int main(int argc, const char** argv) {
