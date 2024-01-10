@@ -4,7 +4,7 @@
 #include <functional>
 #include <unordered_map>
 
-using T = long long;
+using T = unsigned long long;
 
 struct Condition {
     char param;
@@ -49,7 +49,7 @@ Workflow parseWorkflow(const std::string& line) {
     for (T i = 0; i < conditionTokens.size() - 1; ++i) {
         const std::string_view t = conditionTokens[i];
         const size_t colon = t.find(':');
-        const T value{std::stoll(toString(t.substr(2, colon - 2)))};
+        const T value{std::stoull(toString(t.substr(2, colon - 2)))};
         const std::string flowId{t.substr(colon + 1)};
 
         conditions.push_back(Condition {.param = t[0], .op = t[1], .value = value, .flowId = flowId});
@@ -140,21 +140,23 @@ void solvePart1(const Workflows& workflows, const Parts& parts, const std::strin
             const T partTotal = p.x + p.m + p.a + p.s;
             total += partTotal;
 
-            std::cout << std::format("\taccepted: {},{},{},{}: {}\n", p.x, p.m, p.a, p.s, partTotal);
+            // std::cout << std::format("\taccepted: {},{},{},{}: {}\n", p.x, p.m, p.a, p.s, partTotal);
         }
     }
 
     std::cout << std::format("Part 1: {}\n", total);
 }
 
-T count(const Workflows& workflows, PartRange partRange, const std::string& workflow) {
-    if (workflow == "A") {
+T count(const Workflows& workflows, PartRange partRange, const std::string& workflow, const std::string& space = " ") {
+    if (workflow == "A") {        
         T product = 1;
         for (auto range: partRange) {
             product *= range.second.max - range.second.min + 1;
         }
+        // std::cout << std::format("{}Accept {}\n", space, product);
         return product;
     } else if (workflow == "R") {
+        // std::cout << std::format("{}Reject\n", space);
         return 0;
     }
 
@@ -163,7 +165,7 @@ T count(const Workflows& workflows, PartRange partRange, const std::string& work
 
     T total = 0;
     for (const Condition& c: w.conditions) {
-        const Range r {partRange[c.param]};
+        const Range& r = partRange.at(c.param);
         Range trueBranch;
         Range falseBranch;
         if (c.op == '<') {
@@ -174,24 +176,30 @@ T count(const Workflows& workflows, PartRange partRange, const std::string& work
             falseBranch = Range {r.min, c.value};
         }
 
+        // std::cout << std::format("{}Handling {}: {} {} {} ({} {}) ({} {}) ({} {})", space, w.id, c.param, c.op, c.value, r.min, r.max, trueBranch.min, trueBranch.max, falseBranch.min, falseBranch.max);
         if (trueBranch.min <= trueBranch.max) {
-            partRange[c.param] = trueBranch;
-            total += count(workflows, partRange, c.flowId);
-            handled = true;
-        } else if (falseBranch.min <= falseBranch.max) {
-            partRange[c.param] = falseBranch;
-            total += count(workflows, partRange, c.flowId);
-            handled = true;
+            // std::cout << " true";
+        }
+        if (falseBranch.min <= falseBranch.max) {
+            // std::cout << " false" << std::endl;
         }
 
-        // restore original range to avoid copying partRange
-        // on the other hand it's error prone and the performance gain should
-        // be measured
-        partRange[c.param] = r;
+
+        if (trueBranch.min <= trueBranch.max) {
+            PartRange trueRange = partRange;
+            trueRange[c.param] = trueBranch;
+            total += count(workflows, trueRange, c.flowId, space + " ");
+        } 
+        if (falseBranch.min <= falseBranch.max) {
+            partRange[c.param] = falseBranch;
+        } else {
+            handled = true;
+            break;
+        }
     }
 
     if (!handled) {
-        total += count(workflows, partRange, w.fallback);
+        total += count(workflows, partRange, w.fallback, space + " ");
     }
 
     return total;
@@ -252,9 +260,9 @@ void test() {
         expect(total == 0);
     };
 
-    "Count is the range length if the true branch accepts"_test = [] {
+    "Count is the range length if the true branch accepts and fallback rejects"_test = [] {
         const Workflows workflows { {"in", 
-            Workflow{.id = "in", .conditions = {Condition{.param = 'x', .op = '<', .value = 1000, .flowId = "A"}}, .fallback = "A"}} };
+            Workflow{.id = "in", .conditions = {Condition{.param = 'x', .op = '<', .value = 1000, .flowId = "A"}}, .fallback = "R"}} };
         const PartRange range = {{'x', {1, 4000}}, {'m',{1, 4000}}, {'a',{1, 4000}}, {'s',{1, 4000}}};
     
         const T total = count(workflows, range, "in");
@@ -262,13 +270,23 @@ void test() {
         expect(total == rangeLength * std::pow(4000, 3));
     };
   
-    "Count is 0 if the true branch rejects"_test = [] {
+    "Count is 0 if the true branch rejects and fallback rejects"_test = [] {
         const Workflows workflows { {"in", 
-            Workflow{.id = "in", .conditions = {Condition{.param = 'x', .op = '<', .value = 1000, .flowId = "R"}}, .fallback = "A"}} };
+            Workflow{.id = "in", .conditions = {Condition{.param = 'x', .op = '<', .value = 1000, .flowId = "R"}}, .fallback = "R"}} };
         const PartRange range = {{'x', {1, 4000}}, {'m',{1, 4000}}, {'a',{1, 4000}}, {'s',{1, 4000}}};
     
         const T total = count(workflows, range, "in");
         expect(total == 0_i);
+    };
+
+    "Count is the false branch length if condition fails and fallback accepts"_test = [] {
+        const Workflows workflows { {"in", 
+            Workflow{.id = "in", .conditions = {Condition{.param = 'x', .op = '<', .value = 10, .flowId = "R"}}, .fallback = "A"}} };
+        const PartRange range = {{'x', {1, 40}}, {'m',{1, 40}}, {'a',{1, 40}}, {'s',{1, 40}}};
+    
+        const T total = count(workflows, range, "in");
+        const T expected = 31*40*40*40;
+        expect(total == expected);
     };
 }
 
