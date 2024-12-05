@@ -1,5 +1,6 @@
 use nom::multi::separated_list1;
 
+#[derive(PartialEq)]
 enum Safety {
     Safe,
     Unsafe,
@@ -12,7 +13,7 @@ enum Direction {
 
 type Report = Vec<i32>;
 
-fn parser(input: &str) -> IResult<&str, Report> {
+fn parse(input: &str) -> IResult<&str, Report> {
     separated_list1(
         newline,
         separated_list1(space1, complete::i32),
@@ -66,47 +67,15 @@ fn check_safety(report: Report) -> Safety {
 
 
 fn solve1(input: &str) -> i32 {
-    let mut total: i32 = 0;
-    let mut count: i32 = 0;
+    let (_, reports) = parse(input)
+    let result = reports
+        .iter()
+        .filter(|report| {
+            check_safety(report) == Safety::Safe
+        })
+        .count();
 
-    for line in input.lines() {
-        total += 1;
-        let mut v = vec![];
-        let split = line.split_whitespace();
-
-        split.for_each(|x| { v.push(x.parse::<i32>().unwrap())});
-
-        let mut left: i32 = v[0];
-        let mut right: i32 = v[1];
-        let mut diff: i32 = right - left;
-        if diff.abs() < 1 && diff.abs() > 3 {
-            count += 1;
-        }
-
-        for i in 2..v.len() {
-            left = right;
-            right = v[i];
-
-            let ndiff = right - left;
-            println!("loop {} {}", i, ndiff);
-            if ndiff.abs() < 1 || ndiff.abs() > 3 {             
-                println!("\tdelta {} {} {}", left, right, ndiff.abs());
-                count += 1;
-                break;
-            }
-            if diff * ndiff < 0 {
-                println!("\tdiff {} {}", diff, ndiff);
-                count += 1;
-                break;
-            }
-            diff = ndiff;            
-        }
-
-        println!("");
-    }
-
-    println!("{} - {} = {}", total, count, (total - count));
-    return total - count;
+    return result;
 }
 
 fn solve2(_input: &str) -> i32 {
@@ -114,8 +83,8 @@ fn solve2(_input: &str) -> i32 {
 }
 
 fn main() {
-    // let file = include_str!("day02.sample");
-    let file = include_str!("day02.input");
+    let file = include_str!("day02.sample");
+    // let file = include_str!("day02.input");
     println!("Result part 1: {}", solve1(file));
     println!("Result part 2: {}", solve2(file));
 }
