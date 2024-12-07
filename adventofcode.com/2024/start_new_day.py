@@ -32,7 +32,7 @@ def create_rust_file(day):
         fout.write(content)
 
 def create_sample_file(day):
-    open(f"day{day:02}.sample", "a").close()
+    open(f"src/day{day:02}.sample", "a").close()
 
 def download_input(year, day):
     url = f"https://adventofcode.com/{year}/day/{day}/input"
