@@ -22,7 +22,7 @@ def start_new_day(day):
 
 def create_rust_file(day):
     in_file = "day_template.rs"
-    out_file = f"day{day:02}.rs"
+    out_file = f"src/day{day:02}.rs"
 
     with open(in_file, "r") as fin:
         content = fin.read()

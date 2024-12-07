@@ -1,3 +1,4 @@
+use super::validate;
 use std::collections::HashMap;
 
 fn solve1(input: &str) -> i32 {
@@ -49,9 +50,12 @@ fn solve2(input: &str) -> usize {
     return result;
 }
 
-fn main() {
-    let file = include_str!("day01.input");
+pub fn solve() {
+    let sample = include_str!("day01.sample");
+    validate::eq(11, solve1(sample));
+    validate::eq(31, solve2(sample));
 
-    println!("Result part 1: {}", solve1(file));
-    println!("Result part 2: {}", solve2(file));
+    let input = include_str!("day01.input");
+    validate::eq(1506483, solve1(input));
+    validate::eq(23126924, solve2(input));
 }
