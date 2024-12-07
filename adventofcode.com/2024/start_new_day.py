@@ -17,7 +17,7 @@ def parse_args():
 def start_new_day(day):
     logger.info(f"Starting new day '{day}'")
     create_rust_file(day)
-    create_sample_file(day)
+    create_data_file(day)
     # download_input(2024, day)
 
 def create_rust_file(day):
@@ -31,8 +31,9 @@ def create_rust_file(day):
     with open(out_file, "w") as fout:
         fout.write(content)
 
-def create_sample_file(day):
+def create_data_file(day):
     open(f"src/day{day:02}.sample", "a").close()
+    open(f"src/day{day:02}.input", "a").close()
 
 def download_input(year, day):
     url = f"https://adventofcode.com/{year}/day/{day}/input"

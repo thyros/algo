@@ -1,14 +1,16 @@
-fn solve1(input: &str) -> usize {
+use super::validate;
+
+fn solve1(_input: &str) -> usize {
     let result: usize = 0;
     return result;
 }
 
-fn solve2(input: &str) -> usize {
+fn solve2(_input: &str) -> usize {
     let result: usize = 0;
     return result;
 }
 
-fn solve() {
+pub fn solve() {
     let sample = include_str!("day{day}.sample");
     validate::eq(0, solve1(sample));
     validate::eq(0, solve2(sample));
