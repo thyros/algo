@@ -30,7 +30,7 @@ def create_rust_file(day):
     for part in [1, 2]:
         out_file = f"src/day{day:02}_part{part:02}.rs"
         with open(out_file, "w") as fout:
-            fout.write(content)
+            fout.write(content.replace("{part}", f"{part:02}"))
 
 def create_data_file(day):
     open(f"src/day{day:02}.sample", "a").close()
