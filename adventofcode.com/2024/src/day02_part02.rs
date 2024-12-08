@@ -71,19 +71,7 @@ fn check_safety(report: &Report) -> Safety {
     return Safety::Safe;
 }
 
-
-fn solve1(input: &str) -> usize {
-    let (_, reports) = parse(input).unwrap();
-    let result = reports
-        .iter()
-        .map(|report| check_safety(report))
-        .filter(|safety| safety == &Safety::Safe )
-        .count();
-
-    return result;
-}
-
-fn solve2(input: &str) -> usize {
+fn solve(input: &str) -> usize {
     let (_, reports) = parse(input).unwrap();
     let result = reports
         .iter()
@@ -108,12 +96,10 @@ fn solve2(input: &str) -> usize {
     return result;
 }
 
-pub fn solve() {
+pub fn main() {
     let sample = include_str!("day02.sample");
-    validate::eq(2, solve1(sample));
-    validate::eq(4, solve2(sample));
+    validate::eq(4, solve(sample),"day02 part02 sample");
 
     let input = include_str!("day02.input");
-    validate::eq(257, solve1(input));
-    validate::eq(328, solve2(input));
+    validate::eq(328, solve(input),"day02 part02 input");
 }

@@ -56,20 +56,7 @@ fn parse(input: &str) -> IResult<&str, Vec<Instruction>> {
     )(input)
 }
 
-fn solve1(input: &str) -> u32 {
-    let (_, instructions) = parse(input).unwrap();
-
-    let result: u32 = instructions
-        .iter()
-        .map(|i| match i {
-            Instruction::Mul(a, b) => a * b, 
-            &Instruction::Do | &Instruction::Dont => todo!() })       
-        .sum();
-
-    return result;
-}
-
-fn solve2(input: &str) -> u32 {
+fn solve(input: &str) -> u32 {
     let (_, instructions) = parse(input).unwrap();
 
     let (_, result) = instructions.iter().fold(
@@ -94,13 +81,10 @@ fn solve2(input: &str) -> u32 {
     return result;
 }
 
-pub fn solve() {
-    // let sample = include_str!("day03.sample");
-    // validate::eq(161, solve1(sample));
-    let sample2 = include_str!("day03.sample2");
-    validate::eq(48, solve2(sample2));
+pub fn main() {
+    let sample = include_str!("day03_part02.sample");
+    validate::eq(48, solve(sample), "day03 part02 sample");
 
     let input = include_str!("day03.input");
-    // validate::eq(161289189, solve1(input));
-    validate::eq(83595109, solve2(input));
+    validate::eq(83595109, solve(input), "day03 part02 input");
 }

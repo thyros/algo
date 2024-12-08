@@ -22,14 +22,15 @@ def start_new_day(day):
 
 def create_rust_file(day):
     in_file = "day_template.rs"
-    out_file = f"src/day{day:02}.rs"
 
     with open(in_file, "r") as fin:
         content = fin.read()
-
     content = content.replace("{day}", f"{day:02}")
-    with open(out_file, "w") as fout:
-        fout.write(content)
+
+    for part in [1, 2]:
+        out_file = f"src/day{day:02}_part{part:02}.rs"
+        with open(out_file, "w") as fout:
+            fout.write(content)
 
 def create_data_file(day):
     open(f"src/day{day:02}.sample", "a").close()

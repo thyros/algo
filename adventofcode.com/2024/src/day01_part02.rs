@@ -1,31 +1,7 @@
 use super::validate;
 use std::collections::HashMap;
 
-fn solve1(input: &str) -> i32 {
-    let mut left = vec![];
-    let mut right = vec![];
-
-    for line in input.lines() {
-        let mut items = line.split_whitespace();
-        left.push(
-            items.next().unwrap().parse::<i32>().unwrap()
-        );
-        right.push(
-            items.next().unwrap().parse::<i32>().unwrap()
-        );    
-    }
-
-    left.sort();
-    right.sort();
-
-    let result: i32 = std::iter::zip(left, right)
-        .map(|(l, r)| (l - r).abs())
-        .sum();
-
-    return result;
-}
-
-fn solve2(input: &str) -> usize {
+fn solve(input: &str) -> usize {
     let mut left = vec![];
     let mut right: HashMap<usize, usize> = HashMap::new();
 
@@ -50,12 +26,10 @@ fn solve2(input: &str) -> usize {
     return result;
 }
 
-pub fn solve() {
+pub fn main() {
     let sample = include_str!("day01.sample");
-    validate::eq(11, solve1(sample));
-    validate::eq(31, solve2(sample));
+    validate::eq(31, solve(sample),"day01 part02 sample");
 
     let input = include_str!("day01.input");
-    validate::eq(1506483, solve1(input));
-    validate::eq(23126924, solve2(input));
+    validate::eq(23126924, solve(input),"day01 part02 input");
 }
