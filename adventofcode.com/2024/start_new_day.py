@@ -1,5 +1,7 @@
 import argparse
 import logging
+import os.path
+import requests
 import urllib.request
 import shutil
 
@@ -13,12 +15,23 @@ def parse_args():
     parser.add_argument('day')
     return parser.parse_args()
 
+def day_exists(day):
+    files = [f"src/day{day:02}_part01.rs",
+             f"src/day{day:02}_part02.rs",
+             f"src/day{day:02}.sample",
+             f"src/day{day:02}.input"]
+
+    return any([os.path.isfile(f) for f in files])
 
 def start_new_day(day):
     logger.info(f"Starting new day '{day}'")
-    create_rust_file(day)
-    create_data_file(day)
-    # download_input(2024, day)
+
+    if day_exists(day):
+        logger.error(f"Day '{day}' already exists")
+    else:
+        create_rust_file(day)
+        create_data_file(day)
+        download_input(2024, day)
 
 def create_rust_file(day):
     in_file = "day_template.rs"
@@ -34,16 +47,24 @@ def create_rust_file(day):
 
 def create_data_file(day):
     open(f"src/day{day:02}.sample", "a").close()
-    open(f"src/day{day:02}.input", "a").close()
 
 def download_input(year, day):
     url = f"https://adventofcode.com/{year}/day/{day}/input"
-    output = f"{day:02}.input"
+    out_file = f"src/day{day:02}.input"
 
-    logger.error(f"Downloading: {url}")
-    logger.error(f"  into: {output}")
-    urllib.request.urlretrieve(url, output)
+    with open('session', 'r') as fin:
+        session_text = fin.read()
 
+    session = requests.Session()
+    response = session.get(url,
+        cookies={'session': session_text})
+
+    if response.status_code == 200:
+        with open(out_file, 'w') as fout:
+            fout.write(response.text)
+    else:
+        logger.error(f"Failed to download: {url}")
+        logger.error(f"\t{response}")
 
 if __name__ == "__main__":
     logging.basicConfig(format="%(message)s", level=logging.INFO)
