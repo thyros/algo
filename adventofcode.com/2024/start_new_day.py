@@ -23,6 +23,23 @@ def day_exists(day):
 
     return any([os.path.isfile(f) for f in files])
 
+def update_main(day):
+    with open('src/main.rs', 'w') as fout:
+        fout.write('mod validate;\n')
+        fout.write('\n')
+
+        for i in range(1, day + 1):
+            fout.write(f'mod day{i:02}_part01;\n')
+            fout.write(f'mod day{i:02}_part02;\n')
+
+        fout.write('\n')
+        fout.write('fn main() {\n')
+        for i in range(1, day + 1):
+            fout.write(f'    day{i:02}_part01::main();\n')
+            fout.write(f'    day{i:02}_part02::main();\n')
+        fout.write('}\n')
+
+
 def start_new_day(day):
     logger.info(f"Starting new day '{day}'")
 
@@ -31,6 +48,7 @@ def start_new_day(day):
     else:
         create_rust_file(day)
         create_data_file(day)
+        update_main(day)
         download_input(2024, day)
 
 def create_rust_file(day):
