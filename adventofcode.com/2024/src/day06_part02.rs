@@ -45,53 +45,23 @@ fn is_on_board(position: IVec2, size: IVec2) -> bool {
     position.x >= 0 && position.x < size.x && position.y >= 0 && position.y < size.y
 }
 
-fn draw_state(board_size: &IVec2, walls: &Walls, visited: &Visited, position: IVec2) {
-    for y in 0..board_size.y {
-        let mut line: String = String::default();
-        for x in 0..board_size.x {
-            let pos = IVec2::new(x, y);
-            if pos == position {
-                line.push('X');
-            } else if walls.contains(&pos) {
-                line.push('#');
-            } else if visited.contains(&(pos, IVec2::X)){
-                line.push('>');
-            } else if visited.contains(&(pos, IVec2::NEG_X)){
-                line.push('<');
-            } else if visited.contains(&(pos, IVec2::Y)){
-                line.push('v');
-            } else if visited.contains(&(pos, IVec2::NEG_Y)){
-                line.push('^');
-            } else {
-                line.push('.');
-            }
-        }
-        println!("{}", line);
-    }
-    println!("");
-}
-
-
 fn guard_loops(board_size: IVec2, walls: &Vec<IVec2>, start: IVec2, dir: IVec2) -> bool {
     let mut position = start;
     let mut direction = dir;
 
     let mut visited: Visited = HashSet::default();
     loop {
-        visited.insert((position, direction));
-
-        // draw_state(&board_size, walls, &visited, position);
-        let next_position = position + direction;
-        if visited.contains(&(next_position, direction)) {
-            // println!("\t{} {} start", next_position, direction);
+        if visited.contains(&(position, direction)) {
             return true;
-        } else if !is_on_board(next_position, board_size) {
-            // println!("\t{} {} off board", next_position, direction);
+        } else if !is_on_board(position, board_size) {
             return false;
-        } if walls.contains(&next_position) {
-            // println!("\t{} {} wall", next_position, direction);
+        } 
+        
+        let next_position = position + direction;
+        if walls.contains(&next_position) {
             direction = rotate(direction);
         } else {
+            visited.insert((position, direction));
             position = next_position;
         }
     }
@@ -100,9 +70,10 @@ fn guard_loops(board_size: IVec2, walls: &Vec<IVec2>, start: IVec2, dir: IVec2) 
 fn solve(input: &str) -> usize {
     let (mut walls, mut position, board_size) = parse(input);
 
-    let mut result: usize = 0;
     let mut direction = IVec2::NEG_Y;
     let mut guard_on_board: bool = true;
+
+    let mut walls_added: HashSet<IVec2> = HashSet::default();
 
     let mut count: i32 = 0;
 
@@ -115,7 +86,7 @@ fn solve(input: &str) -> usize {
                 walls.push(next_position);
                 let loops = guard_loops(board_size, &walls, position, direction);
                 if loops {
-                    result += 1;
+                    walls_added.insert(next_position.clone());
                 }
                 walls.pop();
 
@@ -130,7 +101,7 @@ fn solve(input: &str) -> usize {
         }
     }
 
-    return result;
+    return walls_added.len();
 }
 
 pub fn main() {
