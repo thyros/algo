@@ -4,7 +4,10 @@ use glam::IVec2;
 
 use super::validate;
 
-fn parse(input: &str) -> (Vec<IVec2>, IVec2, IVec2) {
+type Walls = Vec<IVec2>;
+type Visited = HashSet<(IVec2, IVec2)>;
+
+fn parse(input: &str) -> (Walls, IVec2, IVec2) {
     let mut walls: Vec<IVec2> = Vec::default();
     let mut position: IVec2 = IVec2::default();
     let mut board_size: IVec2 = IVec2::ZERO;
@@ -42,20 +45,52 @@ fn is_on_board(position: IVec2, size: IVec2) -> bool {
     position.x >= 0 && position.x < size.x && position.y >= 0 && position.y < size.y
 }
 
-fn guard_loops(board_size: IVec2, walls: Vec<IVec2>, visited: &HashSet<IVec2>, start: IVec2, dir: IVec2) -> bool {
+fn draw_state(board_size: &IVec2, walls: &Walls, visited: &Visited, position: IVec2) {
+    for y in 0..board_size.y {
+        let mut line: String = String::default();
+        for x in 0..board_size.x {
+            let pos = IVec2::new(x, y);
+            if pos == position {
+                line.push('X');
+            } else if walls.contains(&pos) {
+                line.push('#');
+            } else if visited.contains(&(pos, IVec2::X)){
+                line.push('>');
+            } else if visited.contains(&(pos, IVec2::NEG_X)){
+                line.push('<');
+            } else if visited.contains(&(pos, IVec2::Y)){
+                line.push('v');
+            } else if visited.contains(&(pos, IVec2::NEG_Y)){
+                line.push('^');
+            } else {
+                line.push('.');
+            }
+        }
+        println!("{}", line);
+    }
+    println!("");
+}
+
+
+fn guard_loops(board_size: IVec2, walls: &Vec<IVec2>, start: IVec2, dir: IVec2) -> bool {
     let mut position = start;
     let mut direction = dir;
 
+    let mut visited: Visited = HashSet::default();
     loop {
-        let next_position = position + direction;      
-        if next_position == start {
+        visited.insert((position, direction));
+
+        // draw_state(&board_size, walls, &visited, position);
+        let next_position = position + direction;
+        if visited.contains(&(next_position, direction)) {
+            // println!("\t{} {} start", next_position, direction);
             return true;
         } else if !is_on_board(next_position, board_size) {
+            // println!("\t{} {} off board", next_position, direction);
             return false;
         } if walls.contains(&next_position) {
+            // println!("\t{} {} wall", next_position, direction);
             direction = rotate(direction);
-        } else if !visited.contains(&next_position) {
-            return false;
         } else {
             position = next_position;
         }
@@ -63,14 +98,13 @@ fn guard_loops(board_size: IVec2, walls: Vec<IVec2>, visited: &HashSet<IVec2>, s
 }
 
 fn solve(input: &str) -> usize {
-    let (walls, mut position, board_size) = parse(input);
-
-    let mut visited: HashSet<IVec2> = HashSet::default();
-    visited.insert(position);
+    let (mut walls, mut position, board_size) = parse(input);
 
     let mut result: usize = 0;
     let mut direction = IVec2::NEG_Y;
     let mut guard_on_board: bool = true;
+
+    let mut count: i32 = 0;
 
     while guard_on_board {
         let next_position = position + direction;
@@ -78,15 +112,18 @@ fn solve(input: &str) -> usize {
             if walls.contains(&next_position) {
                 direction = rotate(direction);
             } else {
-                position = next_position;
-                visited.insert(position);
-                
-                let mut new_walls: Vec<IVec2> = walls.clone();
-                new_walls.push(position + direction);
-                
-                if guard_loops(board_size, new_walls, &visited, position, direction) {
+                walls.push(next_position);
+                let loops = guard_loops(board_size, &walls, position, direction);
+                if loops {
                     result += 1;
                 }
+                walls.pop();
+
+                count += 1;
+                println!("guard_loops: {}: {} {} {}", count, position, direction, loops);
+
+                position = next_position;
+                
             }
         } else {
             guard_on_board = false;
