@@ -28,15 +28,13 @@ def update_main(day):
         fout.write('mod validate;\n')
         fout.write('\n')
 
-        for i in range(1, day + 1):
-            fout.write(f'mod day{i:02}_part01;\n')
-            fout.write(f'mod day{i:02}_part02;\n')
+        fout.write(f'mod day{day:02}_part01;\n')
+        fout.write(f'mod day{day:02}_part02;\n')
 
         fout.write('\n')
         fout.write('fn main() {\n')
-        for i in range(1, day + 1):
-            fout.write(f'    day{i:02}_part01::main();\n')
-            fout.write(f'    day{i:02}_part02::main();\n')
+        fout.write(f'    day{day:02}_part01::main();\n')
+        fout.write(f'    day{day:02}_part02::main();\n')
         fout.write('}\n')
 
 
