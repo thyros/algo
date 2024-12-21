@@ -21,7 +21,7 @@ pub fn parse(input: &str) -> (Map, IVec2) {
     return (result, size);
 }
 
-fn neighbours(map: &Map, size: IVec2, pos: &Cursor) -> Vec<Cursor> {
+fn neighbours(map: &Map, size: IVec2, pos: &Cursor) -> HashSet<Cursor> {
     let x_bound = 0..size.x as i32;
     let y_bound = 0..size.y as i32;
 
@@ -39,31 +39,30 @@ fn neighbours(map: &Map, size: IVec2, pos: &Cursor) -> Vec<Cursor> {
             return x_bound.contains(&p.x) && y_bound.contains(&p.y) && map[&p] == pos.1 + 1;
         })
         .map(|offset| (pos.0 + offset, pos.1 + 1))
-        .collect_vec();
+        .collect::<HashSet<_>>();
 }
 
-fn find_peaks(map: &Map, size: IVec2, trailhead: &Cursor) -> Vec<Cursor> {
+fn find_peaks(map: &Map, size: IVec2, trailhead: &Cursor) -> HashSet<Cursor> {
     let mut current = neighbours(&map, size, &trailhead);
+
+    let mut step = 0;
     while !current.is_empty() {
-        let mut next = Vec::default();
+        let mut next = HashSet::<Cursor>::default();
+        println!("c: {:?}", current);
         for c in &current {
             let n = neighbours(&map, size, c);
-
-            for nn in n {
-                if !next.contains(&nn) {
-                    next.push(nn);
-                }
-            }
+            println!("\tn: {:?}", n);
+            next.extend(n);
         }
-
         current = next;
-        if !current.is_empty() && current[0].1 == 9 {
+        
+        step += 1;
+        if step == 8 {
             break;
         }
     }
-
+    println!("return: {:?}", current);
     return current;
-
 }
 
 fn solve(input: &str) -> usize {
@@ -93,6 +92,6 @@ pub fn main() {
     let sample = include_str!("day10.sample").trim();
     validate::eq(36, solve(sample), "day10 part01 sample");
 
-    // let input = include_str!("day10.input").trim();
-    // validate::eq(0, solve(input), "day10 part01 input");
+    let input = include_str!("day10.input").trim();
+    validate::eq(798, solve(input), "day10 part01 input");
 }
