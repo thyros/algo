@@ -48,10 +48,10 @@ fn find_peaks(map: &Map, size: IVec2, trailhead: &Cursor) -> HashSet<Cursor> {
     let mut step = 0;
     while !current.is_empty() {
         let mut next = HashSet::<Cursor>::default();
-        println!("c: {:?}", current);
+        // println!("c: {:?}", current);
         for c in &current {
             let n = neighbours(&map, size, c);
-            println!("\tn: {:?}", n);
+            // println!("\tn: {:?}", n);
             next.extend(n);
         }
         current = next;
@@ -61,7 +61,7 @@ fn find_peaks(map: &Map, size: IVec2, trailhead: &Cursor) -> HashSet<Cursor> {
             break;
         }
     }
-    println!("return: {:?}", current);
+    // println!("return: {:?}", current);
     return current;
 }
 
@@ -77,9 +77,9 @@ fn solve(input: &str) -> usize {
     
     let mut result: usize = 0;
     for trailhead in trailheads {
-        println!("Trailhead {:?}", trailhead);
+        // println!("Trailhead {:?}", trailhead);
         let peaks = find_peaks(&map, size, &trailhead);
-        println!("\tpeaks {:?}", peaks);
+        // println!("\tpeaks {:?}", peaks);
 
         result += peaks.len();
     }
