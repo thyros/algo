@@ -16,6 +16,7 @@ def parse_args():
     return parser.parse_args()
 
 def day_exists(day):
+    return False
     files = [f"src/day{day:02}_part01.rs",
              f"src/day{day:02}_part02.rs",
              f"src/day{day:02}.sample",
