@@ -2,7 +2,7 @@ use super::validate;
 
 use glam::IVec2;
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 type Plot = HashSet<IVec2>;
 

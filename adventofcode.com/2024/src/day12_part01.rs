@@ -1,6 +1,6 @@
 use super::validate;
 
-use glam::{DVec2, IVec2};
+use glam::{IVec2};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 
@@ -105,26 +105,31 @@ fn count_sides(plot: &Plot) -> u64 {
 
         if ex % 10 == 0 {
             for dx in vec!(-1, 1) {
-                let cx = ex + dx;
-                let next_edge = IVec2::new(cx, ey);
-                while edges.get(&next_edge).unwrap() == direction {
-                    seen.insert(next_edge);
+                let mut cx = ex + dx;
+                while edges.get(&IVec2::new(cx, ey)) == Some(direction) {
+                    seen.insert(IVec2::new(cx, ey));
+                    cx += dx;
+                }
+            }
+        } else {
+            for dy in vec!(-1, 1) {
+                let mut cy = ey + dy;
+                while edges.get(&IVec2::new(ex, cy)) == Some(direction) {
+                    seen.insert(IVec2::new(ex, cy));
+                    cy += dy;
                 }
             }
         }
-
-
     }
 
-
-    todo!();
+    return side_count;
 }
 
 fn solve(input: &str) -> u64 {
     let result = flood_fill(input)
         .iter()
         // .inspect(|plot| println!("{:?}", plot))
-        .map(|plot| plot.len() * count_sides(&plot))
+        .map(|plot| plot.len() as u64 * count_sides(&plot))
         .sum();
     return result;
 }
