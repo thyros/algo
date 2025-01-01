@@ -1,8 +1,8 @@
 use super::validate;
 
-use glam::IVec2;
+use glam::{IVec2};
 use itertools::Itertools;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 type Plot = HashSet<IVec2>;
 
@@ -21,7 +21,6 @@ fn is_same_cell(grid: &Vec<&str>, pos: IVec2, c: char) -> bool {
     return false;
 }
 
-
 fn flood_fill(input: &str) -> Vec<Plot> {
     let lines = input.lines().collect_vec();
     let mut visited: HashSet<IVec2> = HashSet::default();
@@ -32,7 +31,7 @@ fn flood_fill(input: &str) -> Vec<Plot> {
         IVec2::new(0, -1),
         IVec2::new(1, 0),
         IVec2::new(0, 1),
-    ];    
+    ];
 
     for (y, line) in lines.iter().enumerate() {
         for (x, c) in line.chars().enumerate() {
@@ -57,7 +56,7 @@ fn flood_fill(input: &str) -> Vec<Plot> {
             }
 
             if !plot.is_empty() {
-                // println!("{}: {:?} {}", c, &plot, evaluate_plot(&plot));
+                // println!("{}: {:?} {}", c, &plot, count_sides(&plot));
                 result.push(plot);
             }
         }
@@ -66,40 +65,73 @@ fn flood_fill(input: &str) -> Vec<Plot> {
     return result;
 }
 
-fn evaluate_plot(plot: &Plot) -> u64 {
+fn count_sides(plot: &Plot) -> u64 {
+    let mut edges: HashMap<IVec2, IVec2> = HashMap::default();
 
-    let offsets = [
-        IVec2::new(-1, 0),
-        IVec2::new(0, -1),
-        IVec2::new(1, 0),
-        IVec2::new(0, 1),
-    ];
+    for cell in plot {
+        let next_cells = [
+            IVec2::new(cell.x - 1, cell.y),
+            IVec2::new(cell.x, cell.y - 1),
+            IVec2::new(cell.x + 1, cell.y),
+            IVec2::new(cell.x, cell.y + 1),
+        ];
 
-    let perimeter: u64 = plot
-        .iter()
-        .map(|p| {
-            offsets
-                .iter()
-                .map(|o| {
-                    if plot.contains(&(p + o)) {
-                        return 0;
-                    }
-                    return 1;
-                })
-                .sum::<u64>()
-        })
-        .sum();
-        
-    let area: u64 = plot.len() as u64;
+        for next_cell in next_cells {
+            if plot.contains(&next_cell) {
+                continue;
+            }
 
-    return perimeter * area;
+            // edges are mutliplied by 10 so I can use IVec2
+            // as a key in HashMap
+            let edge_x: i32 = (cell.x + next_cell.x) * 10 / 2;
+            let edge_y: i32 = (cell.y + next_cell.y) * 10 / 2;
+
+            edges.insert(IVec2::new(edge_x, edge_y), IVec2::new(edge_x - cell.x * 10, edge_y - cell.y * 10));
+        }
+    }
+
+    let mut seen: HashSet<IVec2> = HashSet::default();
+    let mut side_count: u64 = 0;
+
+    for (edge, direction) in edges.iter() {
+        if seen.contains(edge) {
+            continue;
+        }
+
+        side_count += 1;
+
+        let ex = edge.x;
+        let ey = edge.y;
+
+        if ex % 10 == 0 {
+            for dx in vec!(-10, 10) {
+                let mut cx = ex + dx;
+                // println!("{}: {} {}", cx, ex, dx);
+                while edges.get(&IVec2::new(cx, ey)) == Some(direction) {
+                    seen.insert(IVec2::new(cx, ey));
+                    cx += dx;
+                }
+            }
+        } else {
+            for dy in vec!(-10, 10) {
+                let mut cy = ey + dy;
+                // println!("{}: {} {}", cy, ey, dy);
+                while edges.get(&IVec2::new(ex, cy)) == Some(direction) {
+                    seen.insert(IVec2::new(ex, cy));
+                    cy += dy;
+                }
+            }
+        }
+    }
+
+    return side_count;
 }
 
 fn solve(input: &str) -> u64 {
     let result = flood_fill(input)
         .iter()
         // .inspect(|plot| println!("{:?}", plot))
-        .map(|plot| evaluate_plot(&plot))
+        .map(|plot| plot.len() as u64 * count_sides(&plot))
         .sum();
     return result;
 }
@@ -112,8 +144,9 @@ pub fn main() {
     let sample = include_str!("day12_4.sample").trim();
     validate::eq(236, solve(sample), "day12 part01 sample 4");
     let sample = include_str!("day12_5.sample").trim();
-    validate::eq(236, solve(sample), "day12 part01 sample 5");
+    validate::eq(368, solve(sample), "day12 part01 sample 5");
 
     let input = include_str!("day12.input").trim();
-    validate::eq(1431440, solve(input), "day12 part01 input");
+    validate::eq(869070, solve(input), "day12 part01 input");
+
 }
