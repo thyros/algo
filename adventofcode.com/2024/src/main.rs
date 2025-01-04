@@ -1,9 +1,9 @@
 mod validate;
 
-mod day17_part01;
-mod day17_part02;
+mod day18_part01;
+mod day18_part02;
 
 fn main() {
-    day17_part01::main();
-    day17_part02::main();
+    day18_part01::main();
+    day18_part02::main();
 }
