@@ -78,7 +78,7 @@ fn find_cheats(path: &HashMap<IVec2, i32>) -> Vec<i32> {
     return cheats;
 }
 
-fn bfs(walls: &HashSet<IVec2>, start: IVec2, end: IVec2) -> HashMap<IVec2, i32> {
+fn dfs(walls: &HashSet<IVec2>, start: IVec2, end: IVec2) -> HashMap<IVec2, i32> {
     let mut p = start;
     let mut cost: i32 = 0;
 
@@ -108,19 +108,19 @@ fn bfs(walls: &HashSet<IVec2>, start: IVec2, end: IVec2) -> HashMap<IVec2, i32> 
 fn solve(input: &str, min_save: i32) -> usize {
     let (walls, start, end, _size) = parse_maze(input);
 
-    let path = bfs(&walls, start, end);
+    let path = dfs(&walls, start, end);
     // print_grid(&size, &path, &walls);
 
     let cheats = find_cheats(&path);
     println!("{:?}", cheats);
 
-    let result = cheats.iter().filter(|&&c| c > min_save).count();
+    let result = cheats.iter().filter(|&&c| c >= min_save).count();
     return result;
 }
 
 pub fn main() {
     let sample = include_str!("day20.sample").trim();
-    validate::eq(41, solve(sample, 30), "day20 part01 sample");
+    validate::eq(4, solve(sample, 30), "day20 part01 sample");
 
     let input = include_str!("day20.input").trim();
     validate::eq(0, solve(input, 100), "day20 part01 input");
