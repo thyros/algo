@@ -57,7 +57,7 @@ fn find_path(walls: &HashSet<IVec2>, start: IVec2, end: IVec2) -> Vec<IVec2> {
 
         c = np;
     }
-
+    path.push(end);
     return path;
 }
 
@@ -65,21 +65,23 @@ fn solve(input: &str, min_save: usize) -> usize {
     let (walls, start, end, _size) = parse_maze(input);
 
     let path = find_path(&walls, start, end);
-    // print_grid(&size, &path, &walls);
 
+    let max_cheat_length = 20;
 
-
-    let cheat_length = 20;
-
-    let result = path.iter().enumerate().tuple_combinations().filter_map(
-        |((start_cost, start_pos), (end_cost, end_pos))| {
-            let distance = (start_pos - end_pos).abs().element_sum() as usize;
-            if distance > cheat_length {
+    let result = path
+        .iter()
+        .enumerate()
+        .tuple_combinations()
+        .filter_map(|((start_cost, start_pos), (end_cost, end_pos))| {
+            let cheat_length = (start_pos - end_pos).abs().element_sum() as usize;
+            if cheat_length > max_cheat_length {
                 return None;
             }
-            let savings = end_cost - start_cost - distance;
+            let savings = end_cost - start_cost - cheat_length;
             Some(savings)
-        }).filter(|&savings| savings >= min_save).count();
+        })
+        .filter(|&savings| savings >= min_save)
+        .count();
 
     return result;
 }
